@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | ORBIT</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400&family=JetBrains+Mono:wght@100;300;400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CONFIG --- */
+        :root {
+            --void: #050505;
+            --parchment: #F4F0EA;
+            --crimson: #D90429;
+            --glass: rgba(244, 240, 234, 0.05);
+            --border: rgba(244, 240, 234, 0.15);
+        }
+
+        /* --- BASE --- */
+        body {
+            background-color: var(--void);
+            color: var(--parchment);
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: hidden;
+            cursor: none; /* Custom Pulsar Cursor */
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            /* Height dictates how much scrolling space we have to spin the wheel */
+            height: 600vh;
+        }
+
+        .font-serif { font-family: 'Bodoni Moda', serif; }
+
+        /* --- BACKGROUND GRAIN --- */
+        .cosmic-dust {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.06;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+            mix-blend-mode: screen;
+        }
+
+        /* --- PULSAR CURSOR --- */
+        #cursor-core {
+            position: fixed; top: 0; left: 0;
+            width: 4px; height: 4px;
+            background-color: var(--crimson);
+            border-radius: 50%;
+            pointer-events: none; z-index: 10000;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px var(--crimson);
+            transition: opacity 0.2s;
+        }
+        
+        #cursor-orbit {
+            position: fixed; top: 0; left: 0;
+            width: 40px; height: 40px;
+            border: 1px dashed var(--border);
+            border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                        height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                        border-color 0.4s, background-color 0.4s;
+            animation: slow-spin 10s linear infinite;
+        }
+
+        body.is-hovering #cursor-orbit {
+            width: 80px; height: 80px;
+            border-color: var(--crimson);
+            border-style: solid;
+            background-color: rgba(217, 4, 41, 0.05);
+            backdrop-filter: blur(2px);
+            animation-duration: 4s;
+        }
+        body.is-hovering #cursor-core { opacity: 0; }
+
+        @keyframes slow-spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        @media (pointer: coarse) {
+            #cursor-core, #cursor-orbit { display: none; }
+            body { cursor: auto; }
+        }
+
+        /* --- THE RADIAL ENGINE (AWWWARDS TIER) --- */
+        #orbit-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none; /* Let clicks pass through empty space */
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        /* The giant invisible wheel */
+        #wheel {
+            position: absolute;
+            left: 50%;
+            /* Top is set dynamically in JS based on viewport radius */
+            width: 0; height: 0;
+            will-change: transform;
+            /* Debug border to see the wheel (keep commented in prod) */
+            /* border: 1px solid red; border-radius: 50%; width: 2000px; height: 2000px; */
+        }
+
+        .wheel-item {
+            position: absolute;
+            top: 50%; left: 50%;
+            /* Dimensions of the cards */
+            width: 320px; height: 450px;
+            margin-left: -160px; margin-top: -225px; /* Center perfectly */
+            pointer-events: auto; /* Re-enable clicks for items */
+            will-change: transform;
+        }
+
+        @media (max-width: 768px) {
+            .wheel-item { width: 260px; height: 380px; margin-left: -130px; margin-top: -190px; }
+        }
+
+        /* The counter-rotating inner container (The Ferris Wheel bucket) */
+        .wheel-item-inner {
+            width: 100%; height: 100%;
+            position: relative;
+            background: var(--void);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            will-change: transform, filter, box-shadow;
+            transition: filter 0.6s ease, border-color 0.6s ease, box-shadow 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            /* Default Unfocused State */
+            filter: grayscale(100%) brightness(0.4) contrast(1.2);
+            cursor: none;
+            border-radius: 4px;
+        }
+
+        /* The Active State (When an item reaches the center focal point) */
+        .wheel-item.active .wheel-item-inner {
+            filter: grayscale(0%) brightness(1.1) contrast(1.05);
+            border-color: var(--crimson);
+            box-shadow: 0 20px 50px rgba(217, 4, 41, 0.15);
+            transform: scale(1.05);
+            z-index: 50;
+        }
+
+        .wheel-img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scale(1.05); /* Prevent edge clipping */
+        }
+
+        /* Meta Info Overlay */
+        .wheel-meta {
+            position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(5,5,5,0.95) 0%, transparent 60%);
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 2rem;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            pointer-events: none;
+        }
+
+        .wheel-item.active .wheel-meta {
+            opacity: 1; transform: translateY(0);
+        }
+
+        /* --- FOCAL RETICLE --- */
+        .focal-reticle {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 360px; height: 490px;
+            border: 1px solid var(--border);
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            .focal-reticle { width: 280px; height: 400px; }
+        }
+
+        /* Reticle Corners */
+        .focal-reticle::before, .focal-reticle::after, 
+        .fr-inner::before, .fr-inner::after {
+            content: ''; position: absolute; width: 10px; height: 10px; border-color: var(--crimson); border-style: solid;
+        }
+        .focal-reticle::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+        .focal-reticle::after { top: -2px; right: -2px; border-width: 2px 2px 0 0; }
+        .fr-inner::before { bottom: -2px; left: -2px; border-width: 0 0 2px 2px; }
+        .fr-inner::after { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+
+        /* --- PRELOADER --- */
+        #preloader {
+            position: fixed; inset: 0; background: var(--void); z-index: 50000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 1s cubic-bezier(0.76, 0, 0.24, 1);
+        }
+        
+        .orbit-loader {
+            width: 100px; height: 100px; border-radius: 50%;
+            border: 1px solid transparent; border-top-color: var(--crimson); border-bottom-color: var(--crimson);
+            animation: load-spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        }
+        @keyframes load-spin { 100% { transform: rotate(360deg); } }
+
+        /* --- TYPOGRAPHY REVEALS --- */
+        .reveal-mask { display: inline-block; overflow: hidden; vertical-align: bottom; }
+        .reveal-mask span {
+            display: inline-block; transform: translateY(105%);
+            transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-mask.active span { transform: translateY(0); }
+
+        .outline-text { color: transparent; -webkit-text-stroke: 1px var(--border); }
+    </style>
+</head>
+<body class="selection:bg-[var(--crimson)] selection:text-[var(--void)]">
+
+    <!-- FX LAYERS -->
+    <div class="cosmic-dust"></div>
+    <div id="cursor-orbit"></div>
+    <div id="cursor-core"></div>
+
+    <!-- PRELOADER -->
+    <div id="preloader">
+        <div class="orbit-loader mb-8"></div>
+        <p class="font-mono text-xs tracking-[0.4em] text-[var(--crimson)] uppercase animate-pulse">Calculating Trajectory</p>
+    </div>
+
+    <!-- BACKGROUND TYPOGRAPHY (Fixed, Parallaxed by JS slightly) -->
+    <div class="fixed inset-0 flex items-center justify-center z-0 pointer-events-none opacity-30 mix-blend-overlay select-none" id="bg-typo">
+        <h1 class="font-serif text-[28vw] leading-none tracking-tighter outline-text">ORBIT</h1>
+    </div>
+
+    <!-- HUD NAVIGATION -->
+    <nav class="fixed top-0 w-full z-40 p-6 md:p-8 flex justify-between items-start pointer-events-none">
+        
+        <!-- Left: Brand -->
+        <div class="pointer-events-auto flex flex-col gap-1 cursor-pointer hover-trigger group">
+            <span class="font-serif text-3xl md:text-4xl font-bold tracking-widest text-[var(--parchment)] leading-none group-hover:text-[var(--crimson)] transition-colors">
+                OBD.
+            </span>
+            <span class="font-mono text-[9px] tracking-[0.4em] text-[var(--crimson)] uppercase">Center of Gravity</span>
+        </div>
+
+        <!-- Center: Status -->
+        <div class="hidden md:flex gap-12 font-mono text-[10px] tracking-[0.3em] font-bold text-gray-500 uppercase pointer-events-auto">
+            <span class="text-[var(--parchment)]">SYSTEM: ACTIVE</span>
+            <span>AXIS: <span id="axis-readout">000°</span></span>
+            <span>VELOCITY: <span id="vel-readout">0.0</span></span>
+        </div>
+
+        <!-- Right: Actions -->
+        <div class="pointer-events-auto">
+            <button class="font-mono text-[10px] font-bold tracking-widest uppercase border border-[var(--border)] px-6 py-3 hover-trigger hover:bg-[var(--crimson)] hover:border-[var(--crimson)] hover:text-white transition-colors backdrop-blur-sm bg-black/20">
+                CART [0]
+            </button>
+        </div>
+    </nav>
+
+    <!-- FOCAL RETICLE (The target box in the center) -->
+    <div class="focal-reticle">
+        <div class="fr-inner w-full h-full absolute inset-0"></div>
+    </div>
+
+    <!-- BOTTOM INFO -->
+    <div class="fixed bottom-8 left-8 z-40 pointer-events-none hidden md:block">
+        <h2 class="font-serif text-3xl text-[var(--parchment)] italic mb-2 reveal-mask active" style="transition-delay: 0.5s"><span>The Focal Point</span></h2>
+        <p class="font-mono text-[10px] text-gray-500 tracking-widest uppercase max-w-xs leading-loose reveal-mask active" style="transition-delay: 0.7s"><span>They don't walk beside you. They revolve around you. Scroll to align the assets.</span></p>
+    </div>
+
+    <div class="fixed bottom-8 right-8 z-40 pointer-events-none flex flex-col items-center gap-3 text-[var(--crimson)] opacity-80">
+        <span class="font-mono text-[9px] tracking-[0.3em] uppercase">Scroll</span>
+        <div class="w-[1px] h-12 bg-[var(--crimson)] animate-pulse"></div>
+    </div>
+
+    <!-- THE ORBITAL ENGINE -->
+    <!-- The physical scrolling of the body drives the rotation of #wheel -->
+    <main id="orbit-container">
+        
+        <div id="wheel">
+            
+            <!-- Items injected via JS for perfect mathematical alignment -->
+            <!-- 
+                Structure:
+                <div class="wheel-item" data-angle="...">
+                    <div class="wheel-item-inner">
+                        <img ...>
+                        <div class="wheel-meta">...</div>
+                    </div>
+                </div>
+            -->
+
+        </div>
+
+    </main>
+
+    <script>
+        // --- INIT ICONS ---
+        lucide.createIcons();
+
+        // --- PRELOADER ---
+        window.addEventListener('load', () => {
+            const preloader = document.getElementById('preloader');
+            setTimeout(() => {
+                preloader.style.opacity = '0';
+                setTimeout(() => preloader.remove(), 1000);
+            }, 1200);
+        });
+
+        // --- CUSTOM CURSOR ---
+        const cursorCore = document.getElementById('cursor-core');
+        const cursorOrbit = document.getElementById('cursor-orbit');
+        
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let oX = mouseX;
+        let oY = mouseY;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // Core snaps instantly
+            cursorCore.style.left = mouseX + 'px';
+            cursorCore.style.top = mouseY + 'px';
+        });
+
+        function animateCursor() {
+            // Smooth follow for the dashed ring
+            oX += (mouseX - oX) * 0.15;
+            oY += (mouseY - oY) * 0.15;
+            cursorOrbit.style.left = oX + 'px';
+            cursorOrbit.style.top = oY + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        // Interaction States
+        document.querySelectorAll('.hover-trigger').forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('is-hovering'));
+            el.addEventListener('mouseleave', () => document.body.classList.remove('is-hovering'));
+        });
+
+        // --- THE RADIAL "FERRIS WHEEL" ENGINE ---
+        
+        // Data for the collection
+        const collection = [
+            { tag: "LOOK 01", title: "THE ORBIT TRENCH", price: "$ 1,200", img: "https://images.unsplash.com/photo-1632149933606-fa45623682ee?auto=format&fit=crop&q=80&w=800" },
+            { tag: "FOOTWEAR", title: "GRAVITY PUMP", price: "$ 480", img: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&q=80&w=800" },
+            { tag: "LOOK 02", title: "APEX BLAZER", price: "$ 850", img: "https://images.unsplash.com/photo-1632958978877-69406b688b11?auto=format&fit=crop&q=80&w=800" },
+            { tag: "ACCESSORY", title: "NEBULA TOTE", price: "$ 1,450", img: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=800" },
+            { tag: "ESSENTIAL", title: "EVENT HORIZON", price: "$ 220", img: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&q=80&w=800" }
+        ];
+
+        const wheel = document.getElementById('wheel');
+        const axisReadout = document.getElementById('axis-readout');
+        const velReadout = document.getElementById('vel-readout');
+        const bgTypo = document.getElementById('bg-typo');
+        
+        let wheelRadius = 0;
+        let items = [];
+
+        // Build the Wheel
+        function buildWheel() {
+            wheel.innerHTML = ''; // Clear existing
+            
+            // Calculate a massive radius so the curve is gentle
+            // Use the larger of width/height, multiplied by 1.2
+            wheelRadius = Math.max(window.innerWidth, window.innerHeight) * 1.2;
+            
+            // Place the center of the wheel perfectly so its top edge hits 50vh (center of screen)
+            // top_edge = center_y - radius => 50vh = center_y - radius => center_y = 50vh + radius
+            wheel.style.top = `calc(50vh + ${wheelRadius}px)`;
+
+            // Define the angular spacing. 
+            // 5 items, let's space them 20 degrees apart. Total span = 80 degrees.
+            const angleSpacing = 20;
+            // Center the items around 0.
+            // Items: -40, -20, 0, 20, 40
+            const startAngle = -((collection.length - 1) * angleSpacing) / 2;
+
+            collection.forEach((data, index) => {
+                const angle = startAngle + (index * angleSpacing);
+                
+                const el = document.createElement('div');
+                el.className = 'wheel-item hover-trigger';
+                el.dataset.angle = angle;
+                
+                // Position at the edge of the wheel
+                // Since the wheel is at 50% left, translating Y by -radius pushes it to the top edge
+                el.style.transform = `rotate(${angle}deg) translateY(-${wheelRadius}px)`;
+
+                el.innerHTML = `
+                    <div class="wheel-item-inner">
+                        <img src="${data.img}" class="wheel-img" alt="${data.title}">
+                        <div class="wheel-meta">
+                            <span class="font-mono text-[9px] text-[var(--crimson)] tracking-widest uppercase mb-2 block">${data.tag}</span>
+                            <h3 class="font-serif text-3xl text-white mb-4 italic">${data.title}</h3>
+                            <div class="flex justify-between items-center border-t border-[var(--border)] pt-4">
+                                <span class="font-mono text-sm text-[var(--parchment)]">${data.price}</span>
+                                <button class="font-mono text-[10px] font-bold tracking-widest hover:text-[var(--crimson)] transition-colors uppercase">Acquire</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add hover states to injected elements
+                el.addEventListener('mouseenter', () => document.body.classList.add('is-hovering'));
+                el.addEventListener('mouseleave', () => document.body.classList.remove('is-hovering'));
+
+                wheel.appendChild(el);
+            });
+
+            items = document.querySelectorAll('.wheel-item');
+        }
+
+        buildWheel();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            buildWheel();
+            // Force an update to reposition things correctly
+            targetScroll = window.scrollY;
+            currentScroll = targetScroll;
+        });
+
+        // Physics variables for buttery smooth lerping
+        let currentScroll = 0;
+        let targetScroll = 0;
+        let lastScroll = 0;
+
+        function renderEngine() {
+            targetScroll = window.scrollY;
+            
+            // Calculate velocity
+            const velocity = targetScroll - lastScroll;
+            velReadout.innerText = Math.abs(velocity).toFixed(1).padStart(4, '0');
+            lastScroll = targetScroll;
+
+            // Lerp current scroll
+            currentScroll += (targetScroll - currentScroll) * 0.08;
+
+            // Calculate progress (0 to 1)
+            const maxScroll = document.body.scrollHeight - window.innerHeight;
+            // Prevent division by zero
+            const progress = maxScroll > 0 ? currentScroll / maxScroll : 0;
+
+            // Determine Wheel Rotation
+            // We have items from -40 to +40 degrees.
+            // To show item 1 (-40deg) at the top (0deg), the wheel must be rotated +40deg.
+            // To show item 5 (+40deg) at the top, the wheel must be rotated -40deg.
+            // So wheel rotation goes from +40 to -40 based on scroll progress.
+            const maxAngle = ((collection.length - 1) * 20) / 2; // 40
+            const wheelRotation = maxAngle - (progress * (maxAngle * 2));
+
+            // Rotate the massive hidden wheel container
+            wheel.style.transform = `translate(-50%, -50%) rotate(${wheelRotation}deg)`;
+            
+            // Update HUD
+            axisReadout.innerText = Math.abs(Math.round(wheelRotation)).toString().padStart(3, '0') + '°';
+            
+            // Parallax the background text slightly opposite to the wheel spin
+            bgTypo.style.transform = `rotate(${-wheelRotation * 0.2}deg) scale(${1 + Math.abs(wheelRotation * 0.005)})`;
+
+            // Counter-rotate the inner cards so they act like Ferris Wheel buckets
+            items.forEach((item) => {
+                const itemAngle = parseFloat(item.dataset.angle);
+                const inner = item.querySelector('.wheel-item-inner');
+
+                // The absolute rotation of this item in world space is (wheelRotation + itemAngle)
+                const absoluteWorldAngle = wheelRotation + itemAngle;
+                
+                // To keep it perfectly upright, we rotate the inner content by the negative of its world angle
+                inner.style.transform = `rotate(${-absoluteWorldAngle}deg)`;
+
+                // Focus Logic: If it is near top-dead-center (absoluteWorldAngle near 0), make it active
+                if (Math.abs(absoluteWorldAngle) < 8) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            requestAnimationFrame(renderEngine);
+        }
+
+        renderEngine();
+
+    </script>
+</body>
+</html>
