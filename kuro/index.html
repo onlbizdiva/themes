@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | KURO PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;1,6..96,400&family=Plus+Jakarta+Sans:wght@200;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        serif: ['Bodoni Moda', 'serif'],
+                    },
+                    colors: {
+                        'kuro-void': '#070707',
+                        'washi-paper': '#F2EFE9',
+                        'kurenai-red': '#D91623',
+                        'sumi-ink': '#1A1A1A',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F2EFE9; /* Starts light, transitions to dark */
+            color: #070707;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            transition: background-color 1s ease, color 1s ease;
+        }
+        body.dark-mode {
+            background-color: #070707;
+            color: #F2EFE9;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* RICE PAPER TEXTURE */
+        .washi-texture {
+            position: fixed; inset: 0; pointer-events: none; z-index: 50;
+            opacity: 0.4; mix-blend-mode: multiply;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+        }
+        body.dark-mode .washi-texture {
+            mix-blend-mode: overlay;
+            opacity: 0.15;
+        }
+
+        /* VERTICAL TYPOGRAPHY */
+        .text-vertical {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+
+        /* CUSTOM INK CURSOR */
+        .cursor-ink {
+            position: fixed; top: 0; left: 0;
+            width: 20px; height: 20px;
+            background: #D91623;
+            border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: multiply;
+            will-change: transform, width, height;
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        body.dark-mode .cursor-ink {
+            mix-blend-mode: screen;
+            background: #D91623;
+            box-shadow: 0 0 20px rgba(217, 22, 35, 0.4);
+        }
+        .cursor-active {
+            width: 80px; height: 80px;
+        }
+
+        /* SHOJI SCREEN REVEAL */
+        .shoji-mask {
+            clip-path: inset(0 100% 0 0);
+            transition: clip-path 1.5s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+        .shoji-mask.revealed {
+            clip-path: inset(0 0 0 0);
+        }
+
+        /* IMAGE HOVER FX */
+        .img-zen {
+            filter: grayscale(100%) contrast(1.1);
+            transition: filter 0.8s ease, transform 1.2s ease;
+        }
+        .group:hover .img-zen {
+            filter: grayscale(0%) contrast(1);
+            transform: scale(1.05);
+        }
+
+        /* KURENAI ACCENT LINE */
+        .kurenai-line {
+            position: relative;
+        }
+        .kurenai-line::after {
+            content: ''; position: absolute;
+            left: 0; bottom: -4px; width: 0%; height: 1px;
+            background: #D91623;
+            transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .kurenai-line:hover::after { width: 100%; }
+
+        /* INPUTS */
+        .zen-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(242, 239, 233, 0.2);
+            padding: 1rem 0;
+            color: #F2EFE9;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 200;
+            transition: border-color 0.4s ease;
+        }
+        .zen-input:focus {
+            outline: none;
+            border-bottom-color: #D91623;
+        }
+        .zen-input::placeholder { color: rgba(242, 239, 233, 0.3); font-style: italic; font-family: 'Bodoni Moda', serif;}
+
+        /* STICKY GALLERY */
+        .pin-gallery {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="selection:bg-kurenai-red selection:text-white cursor-none">
+
+    <!-- GLOBAL FX -->
+    <div class="washi-texture"></div>
+    <div class="cursor-ink hidden md:block" id="ink-drop"></div>
+
+    <!-- NAVIGATION (MINIMALIST) -->
+    <nav class="fixed top-0 w-full p-8 md:p-12 z-50 flex justify-between items-start mix-blend-difference text-washi-paper pointer-events-none">
+        <div class="pointer-events-auto cursor-pointer group" onclick="scrollToSection('hero')">
+            <span class="font-serif italic text-3xl md:text-4xl tracking-widest">Kuro.</span>
+            <div class="w-0 h-px bg-kurenai-red group-hover:w-full transition-all duration-700 mt-2"></div>
+        </div>
+        
+        <div class="pointer-events-auto flex flex-col items-end gap-4 font-sans text-xs uppercase tracking-[0.3em] font-semibold">
+            <button onclick="scrollToSection('philosophy')" class="kurenai-line hover-target">The Way</button>
+            <button onclick="scrollToSection('gallery')" class="kurenai-line hover-target">Artifacts</button>
+            <button onclick="scrollToSection('contact')" class="text-kurenai-red mt-4 hover-target">Initiate</button>
+        </div>
+    </nav>
+
+    <!-- FIXED VERTICAL DECORATION -->
+    <div class="fixed left-8 md:left-12 top-1/2 -translate-y-1/2 z-40 mix-blend-difference text-washi-paper opacity-50 pointer-events-none hidden md:block">
+        <span class="text-vertical font-sans text-[10px] uppercase tracking-[0.5em]">Silence is the loudest signal</span>
+    </div>
+
+    <!-- MAIN SCROLL CONTENT -->
+    <main class="relative z-10">
+
+        <!-- ================= SECTION 1: HERO (THE VOID) ================= -->
+        <section id="hero" class="min-h-screen relative flex items-center px-6 md:px-32">
+            <div class="max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                
+                <div class="lg:col-span-7 relative z-20">
+                    <div class="overflow-hidden mb-6">
+                        <span class="font-sans text-[10px] uppercase tracking-[0.4em] text-kurenai-red block reveal-slide-up opacity-0 translate-y-full">Boutique Digital Architecture</span>
+                    </div>
+                    <div class="overflow-hidden">
+                        <h1 class="font-serif text-6xl md:text-[9vw] leading-[0.85] tracking-tighter reveal-slide-up opacity-0 translate-y-full">
+                            REFINED
+                        </h1>
+                    </div>
+                    <div class="overflow-hidden ml-0 md:ml-[10vw]">
+                        <h1 class="font-serif text-6xl md:text-[9vw] leading-[0.85] tracking-tighter italic text-gray-500 reveal-slide-up opacity-0 translate-y-full">
+                            RESTRAINT.
+                        </h1>
+                    </div>
+                    <div class="mt-12 overflow-hidden max-w-md ml-0 md:ml-[10vw]">
+                        <p class="font-sans text-lg font-light leading-relaxed text-gray-600 reveal-slide-up opacity-0 translate-y-full delay-300">
+                            We strip away the superfluous until only absolute authority remains. High-ticket conversion environments for brands that do not need to shout.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 relative z-10 h-[60vh] lg:h-[80vh] w-full shoji-mask" id="hero-img-mask">
+                    <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover grayscale opacity-90" alt="Minimalist Interior">
+                    <!-- Red Accent Block -->
+                    <div class="absolute bottom-0 left-0 w-1/3 h-2 bg-kurenai-red"></div>
+                </div>
+
+            </div>
+            
+            <!-- Scroll Indicator -->
+            <div class="absolute bottom-12 right-12 flex items-center gap-4 rotate-90 origin-right opacity-0" id="scroll-ind">
+                <span class="font-sans text-[10px] uppercase tracking-[0.4em]">Descend</span>
+                <div class="w-16 h-px bg-kurenai-red"></div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: PHILOSOPHY (WABI-SABI) ================= -->
+        <!-- Trigger Dark Mode -->
+        <section id="philosophy" class="py-32 md:py-48 px-6 md:px-32 relative trigger-dark">
+            <div class="max-w-[1400px] mx-auto">
+                
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-16 items-start">
+                    
+                    <div class="md:col-span-4">
+                        <span class="font-serif italic text-8xl text-kurenai-red leading-none">"</span>
+                        <h2 class="font-serif text-4xl md:text-5xl leading-snug mt-4">
+                            Perfection is found not when there is nothing more to add, but when there is <span class="italic text-gray-500">nothing left to take away.</span>
+                        </h2>
+                    </div>
+
+                    <div class="md:col-span-1"></div> <!-- Spacer -->
+
+                    <div class="md:col-span-7 space-y-24 mt-12 md:mt-32">
+                        
+                        <div class="group">
+                            <span class="font-sans text-[10px] uppercase tracking-[0.3em] text-kurenai-red mb-4 block">01 / The Void (Ma)</span>
+                            <h3 class="font-serif text-3xl mb-4">Mastery of Negative Space</h3>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed max-w-lg">
+                                In traditional Japanese aesthetics, 'Ma' is the pure, essential void between things. We utilize massive negative space to force the user's eye exactly where we dictate. Silence creates focus.
+                            </p>
+                        </div>
+
+                        <div class="group">
+                            <span class="font-sans text-[10px] uppercase tracking-[0.3em] text-kurenai-red mb-4 block">02 / The Flow (Ryūsui)</span>
+                            <h3 class="font-serif text-3xl mb-4">Deliberate Kinetics</h3>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed max-w-lg">
+                                Motion should feel like ink spreading on rice paper—smooth, irreversible, and deeply organic. Our GSAP architecture ensures interactions feel physical and luxurious, never rushed.
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: GALLERY (THE DOJO) ================= -->
+        <!-- Pinned Horizontal Scroll Section -->
+        <section id="gallery" class="bg-kuro-void relative z-10 border-t border-white/5 overflow-hidden">
+            
+            <div class="max-w-[1600px] mx-auto px-6 md:px-32 absolute top-20 w-full z-20 pointer-events-none">
+                <h2 class="font-serif italic text-6xl text-washi-paper/20">THE ARCHIVE.</h2>
+            </div>
+
+            <div class="pin-gallery" id="gallery-track">
+                
+                <!-- Project 1 -->
+                <div class="w-[100vw] h-full flex-shrink-0 flex items-center justify-center px-6 md:px-32 panel-step">
+                    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                        <div class="aspect-[4/5] bg-sumi-ink overflow-hidden shoji-mask group hover-target cursor-pointer relative">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover img-zen">
+                                 <source src="https://videos.pexels.com/video-files/4232777/4232777-hd_1920_1080_30fps.mp4" type="video/mp4">
+                            </video>
+                            <div class="absolute inset-0 bg-kuro-void/40 group-hover:bg-transparent transition-colors duration-700"></div>
+                        </div>
+                        <div class="space-y-6 opacity-0 translate-x-10 panel-text">
+                            <span class="font-sans text-[10px] uppercase tracking-widest text-kurenai-red">Kinetic Brutalism</span>
+                            <h3 class="font-serif text-5xl md:text-6xl">Voltage.</h3>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed">Deconstructing the traditional sales framework using stroboscopic motion and high-contrast brutalist design. Built for aggressive conversion.</p>
+                            <button class="kurenai-line font-sans text-xs uppercase tracking-widest mt-4">Analyze Structure</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 2 -->
+                <div class="w-[100vw] h-full flex-shrink-0 flex items-center justify-center px-6 md:px-32 panel-step">
+                    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                        <div class="space-y-6 order-2 md:order-1 opacity-0 -translate-x-10 panel-text md:text-right">
+                            <span class="font-sans text-[10px] uppercase tracking-widest text-kurenai-red">Liquid Architecture</span>
+                            <h3 class="font-serif text-5xl md:text-6xl">Mercury.</h3>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed md:ml-auto max-w-sm">Fluid intelligence mapped to user interaction. Utilizing real-time SVG displacement to create a shapeless, adaptive digital identity.</p>
+                            <button class="kurenai-line font-sans text-xs uppercase tracking-widest mt-4">Analyze Structure</button>
+                        </div>
+                        <div class="aspect-[4/5] bg-sumi-ink overflow-hidden shoji-mask group hover-target cursor-pointer relative order-1 md:order-2">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover img-zen">
+                                 <source src="https://videos.pexels.com/video-files/3015511/3015511-hd_1920_1080_24fps.mp4" type="video/mp4">
+                            </video>
+                            <div class="absolute inset-0 bg-kuro-void/40 group-hover:bg-transparent transition-colors duration-700"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project 3 -->
+                <div class="w-[100vw] h-full flex-shrink-0 flex items-center justify-center px-6 md:px-32 panel-step">
+                    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                        <div class="aspect-[4/5] bg-sumi-ink overflow-hidden shoji-mask group hover-target cursor-pointer relative">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover img-zen">
+                                 <source src="https://videos.pexels.com/video-files/3756003/3756003-hd_1920_1080_25fps.mp4" type="video/mp4">
+                            </video>
+                            <div class="absolute inset-0 bg-kurenai-red/20 mix-blend-multiply group-hover:bg-transparent transition-colors duration-700"></div>
+                        </div>
+                        <div class="space-y-6 opacity-0 translate-x-10 panel-text">
+                            <span class="font-sans text-[10px] uppercase tracking-widest text-kurenai-red">Noir Seduction</span>
+                            <h3 class="font-serif text-5xl md:text-6xl">Scarlet.</h3>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed">Monochromatic luxury. Utilizing intense radial masking and cinematic reveals to create a sense of extreme exclusivity and desire.</p>
+                            <button class="kurenai-line font-sans text-xs uppercase tracking-widest mt-4">Analyze Structure</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: CONTACT (THE TEA ROOM) ================= -->
+        <!-- Trigger Light Mode -->
+        <section id="contact" class="py-32 md:py-48 px-6 relative z-10 border-t border-kurenai-red/20 trigger-light">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-24">
+                    <span class="w-2 h-2 bg-kurenai-red rounded-full mx-auto mb-6 block animate-pulse"></span>
+                    <h2 class="font-serif italic text-6xl md:text-8xl text-kuro-void mb-6">Initiate.</h2>
+                    <p class="font-sans text-gray-500 font-light max-w-md mx-auto">
+                        We accept a limited number of architectural commissions per annum to maintain absolute quality. State your intent below.
+                    </p>
+                </div>
+
+                <div class="bg-white p-10 md:p-16 border border-gray-200 shadow-2xl">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-16">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+                            <div>
+                                <label class="font-sans text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-2 block">Principal Identity</label>
+                                <input type="text" class="zen-input hover-target !text-kuro-void !border-gray-300 focus:!border-kurenai-red" placeholder="Name or Organization" required>
+                            </div>
+                            <div>
+                                <label class="font-sans text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-2 block">Correspondence</label>
+                                <input type="email" class="zen-input hover-target !text-kuro-void !border-gray-300 focus:!border-kurenai-red" placeholder="Secure Email" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="font-sans text-[9px] uppercase tracking-[0.2em] text-gray-400 mb-2 block">Nature of Engagement</label>
+                            <select class="zen-input hover-target cursor-pointer !text-kuro-void !border-gray-300 focus:!border-kurenai-red bg-transparent appearance-none">
+                                <option>The Kuro Protocol Build ($15k+)</option>
+                                <option>Aesthetic Reconstruction ($8k+)</option>
+                                <option>Strategic Consultation</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-8 text-center">
+                            <button type="submit" class="bg-kuro-void text-washi-paper px-12 py-5 font-sans text-xs uppercase tracking-[0.2em] hover:bg-kurenai-red transition-colors duration-500 hover-target">
+                                Transmit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-modal" class="fixed inset-0 bg-kuro-void/95 backdrop-blur-md z-[60000] hidden flex-col items-center justify-center px-6">
+        <div class="text-center max-w-md mx-auto" id="success-content">
+            <div class="w-px h-16 bg-kurenai-red mx-auto mb-8 transform origin-bottom scale-y-0" id="success-line"></div>
+            <h2 class="font-serif italic text-5xl text-washi-paper mb-6 opacity-0" id="success-text">Message Secured.</h2>
+            <p class="font-sans text-gray-400 font-light leading-relaxed mb-12 opacity-0" id="success-desc">
+                Your intent has been logged in our system. The Kuro directors will review your parameters and respond shortly.
+            </p>
+            <button onclick="closeSuccess()" class="font-sans text-[10px] uppercase tracking-[0.3em] text-gray-500 hover:text-kurenai-red transition-colors opacity-0 hover-target" id="success-btn">
+                Return to Silence
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="py-16 px-6 md:px-12 border-t border-gray-200 trigger-light relative z-10 text-kuro-void text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-8">
+        <div class="font-serif text-2xl italic">Kuro.</div>
+        <div class="flex gap-8 font-sans text-[9px] uppercase tracking-[0.3em] text-gray-500">
+            <a href="#" class="hover:text-kurenai-red transition-colors hover-target">Journal</a>
+            <a href="#" class="hover:text-kurenai-red transition-colors hover-target">Terms</a>
+            <a href="#" class="hover:text-kurenai-red transition-colors hover-target">Liaison</a>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- INK DROP CURSOR ---
+        const cursor = document.getElementById('ink-drop');
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let cursorX = mouseX;
+        let cursorY = mouseY;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Smooth trailing physics (Lerp)
+        gsap.ticker.add(() => {
+            const dt = 1.0 - Math.pow(1.0 - 0.1, gsap.ticker.deltaRatio());
+            cursorX += (mouseX - cursorX) * dt;
+            cursorY += (mouseY - cursorY) * dt;
+            cursor.style.transform = `translate(-50%, -50%) translate(${cursorX}px, ${cursorY}px)`;
+        });
+
+        document.querySelectorAll('.hover-target, button, input, select, a').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('cursor-active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('cursor-active'));
+        });
+
+        // --- THEME FLIPPER (LIGHT/DARK) ---
+        const body = document.body;
+        
+        ScrollTrigger.create({
+            trigger: ".trigger-dark",
+            start: "top 50%",
+            endTrigger: "#gallery",
+            end: "bottom 50%",
+            onEnter: () => body.classList.add('dark-mode'),
+            onLeaveBack: () => body.classList.remove('dark-mode'),
+        });
+
+        ScrollTrigger.create({
+            trigger: ".trigger-light",
+            start: "top 50%",
+            onEnter: () => body.classList.remove('dark-mode'),
+            onLeaveBack: () => body.classList.add('dark-mode'),
+        });
+
+        // --- INITIAL REVEALS ---
+        window.addEventListener('load', () => {
+            const tl = gsap.timeline();
+            tl.to('.reveal-slide-up', { y: 0, opacity: 1, duration: 1.5, stagger: 0.15, ease: "power4.out", delay: 0.2 })
+              .to('#hero-img-mask', { clipPath: "inset(0 0 0 0)", duration: 2, ease: "power3.inOut" }, "-=1")
+              .to('#scroll-ind', { opacity: 1, duration: 1 }, "-=0.5");
+        });
+
+        // --- PINNED GALLERY ENGINE ---
+        if (window.innerWidth > 768) {
+            const track = document.getElementById('gallery-track');
+            const panels = gsap.utils.toArray('.panel-step');
+            
+            // Horizontal scroll timeline
+            const scrollTween = gsap.to(panels, {
+                xPercent: -100 * (panels.length - 1),
+                ease: "none",
+                scrollTrigger: {
+                    trigger: "#gallery",
+                    pin: true,
+                    scrub: 1,
+                    snap: 1 / (panels.length - 1),
+                    end: () => "+=" + track.offsetWidth
+                }
+            });
+
+            // Reveal masks and text inside panels as they come into view
+            panels.forEach((panel, i) => {
+                const mask = panel.querySelector('.shoji-mask');
+                const text = panel.querySelector('.panel-text');
+                
+                ScrollTrigger.create({
+                    trigger: panel,
+                    containerAnimation: scrollTween,
+                    start: "left center",
+                    onEnter: () => {
+                        mask.classList.add('revealed');
+                        gsap.to(text, { opacity: 1, x: 0, duration: 1, ease: "power3.out", delay: 0.3 });
+                    },
+                    onLeaveBack: () => {
+                        // Optional reset logic if desired when scrolling backwards
+                    }
+                });
+            });
+        } else {
+            // Mobile fallback: Just vertical reveals
+            document.getElementById('gallery-track').classList.remove('pin-gallery');
+            document.getElementById('gallery-track').style.flexDirection = 'column';
+            
+            gsap.utils.toArray('.panel-step').forEach(panel => {
+                panel.style.width = '100%';
+                panel.style.paddingTop = '4rem';
+                panel.style.paddingBottom = '4rem';
+                
+                const mask = panel.querySelector('.shoji-mask');
+                const text = panel.querySelector('.panel-text');
+                
+                ScrollTrigger.create({
+                    trigger: panel,
+                    start: "top 70%",
+                    onEnter: () => {
+                        mask.classList.add('revealed');
+                        gsap.to(text, { opacity: 1, x: 0, duration: 1, ease: "power3.out", delay: 0.3 });
+                    }
+                });
+            });
+        }
+
+        // --- NAVIGATION ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.5, scrollTo: { y: `#${id}`, offsetY: 60 }, ease: "power3.inOut" });
+        }
+
+        // --- SUCCESS MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            modal.style.display = 'flex';
+            
+            const tl = gsap.timeline();
+            tl.to(modal, { opacity: 1, duration: 0.4 })
+              .to('#success-line', { scaleY: 1, duration: 0.6, ease: "power3.out" })
+              .to('#success-text', { opacity: 1, y: -10, duration: 0.6, ease: "power2.out" }, "-=0.2")
+              .to('#success-desc', { opacity: 1, y: -10, duration: 0.6, ease: "power2.out" }, "-=0.4")
+              .to('#success-btn', { opacity: 1, duration: 0.5 });
+        }
+        
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            gsap.to(modal, { opacity: 0, duration: 0.5, onComplete: () => {
+                modal.style.display = 'none';
+                // Reset elements for next time
+                gsap.set(['#success-text', '#success-desc', '#success-btn'], { opacity: 0, y: 0 });
+                gsap.set('#success-line', { scaleY: 0 });
+                window.scrollTo(0,0);
+            }});
+        }
+
+    </script>
+</body>
+</html>

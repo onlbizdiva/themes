@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | KINETIC VOGUE</title>
+    
+    <!-- Fonts: Oswald (Compressed) & DM Sans (Geometric) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['DM Sans', 'sans-serif'],
+                        display: ['Oswald', 'sans-serif'],
+                    },
+                    colors: {
+                        'vogue-black': '#000000',
+                        'vogue-white': '#ffffff',
+                        'electric-blue': '#2b00ff',
+                        'paper-gray': '#f3f3f3',
+                    },
+                    cursor: {
+                        'none': 'none',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f3f3f3;
+            color: #000;
+            overflow-x: hidden;
+        }
+
+        /* 1. KINETIC CANVAS */
+        #kinetic-canvas {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            background-color: #000;
+        }
+
+        /* 2. FLOATING TICKET NAV */
+        .ticket-nav {
+            background: #fff;
+            border: 1px solid #000;
+            box-shadow: 10px 10px 0px rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .ticket-nav:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 12px 12px 0px rgba(43, 0, 255, 1);
+        }
+
+        /* 3. SECTION SHEETS */
+        .sheet-section {
+            position: relative;
+            z-index: 10;
+            background: #f3f3f3;
+            min-height: 100vh;
+            border-top: 1px solid #000;
+            /* Box shadow to separate sheets */
+            box-shadow: 0 -20px 50px rgba(0,0,0,0.2);
+        }
+
+        /* 4. CUSTOM CURSOR */
+        .cursor-ball {
+            position: fixed;
+            width: 20px; height: 20px;
+            background: #2b00ff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+            transition: width 0.3s, height 0.3s;
+        }
+        .cursor-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Oswald', sans-serif;
+            font-size: 10px;
+            color: white;
+            white-space: nowrap;
+            opacity: 0;
+        }
+
+        /* 5. LOADER */
+        .loader-type {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .type-char {
+            font-family: 'Oswald', sans-serif;
+            font-size: 4rem;
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        /* Utility */
+        ::-webkit-scrollbar { width: 0px; }
+    </style>
+</head>
+<body class="selection:bg-electric-blue selection:text-white cursor-none">
+
+    <!-- CURSOR -->
+    <div class="cursor-ball hidden md:block">
+        <span class="cursor-text">VIEW</span>
+    </div>
+
+    <!-- LOADER -->
+    <div id="loader" class="loader-type">
+        <div id="loader-text">
+            <span class="type-char">O</span>
+            <span class="type-char">B</span>
+            <span class="type-char">D</span>
+        </div>
+    </div>
+
+    <!-- CANVAS (Background) -->
+    <canvas id="kinetic-canvas"></canvas>
+
+    <!-- UI: TICKET NAV -->
+    <nav class="fixed top-8 right-8 z-50 ticket-nav px-6 py-4 flex flex-col items-end pointer-events-auto">
+        <div class="flex justify-between w-full border-b border-black pb-2 mb-2 gap-8">
+            <span class="font-display font-bold text-xl">OBD.</span>
+            <span class="font-mono text-xs">NO. 001</span>
+        </div>
+        <div class="flex flex-col gap-1 font-sans text-xs font-bold uppercase tracking-wide text-right">
+            <button onclick="scrollToSection('#hero-trigger')" class="hover:text-electric-blue transition-colors group flex items-center justify-end gap-2">
+                Start <div class="w-2 h-2 bg-black rounded-full group-hover:bg-electric-blue"></div>
+            </button>
+            <button onclick="scrollToSection('#manifesto')" class="hover:text-electric-blue transition-colors group flex items-center justify-end gap-2">
+                Vision <div class="w-2 h-2 bg-gray-300 rounded-full group-hover:bg-electric-blue"></div>
+            </button>
+            <button onclick="scrollToSection('#stack')" class="hover:text-electric-blue transition-colors group flex items-center justify-end gap-2">
+                Stack <div class="w-2 h-2 bg-gray-300 rounded-full group-hover:bg-electric-blue"></div>
+            </button>
+            <button onclick="scrollToSection('#access')" class="hover:text-electric-blue transition-colors group flex items-center justify-end gap-2">
+                Join <div class="w-2 h-2 bg-gray-300 rounded-full group-hover:bg-electric-blue"></div>
+            </button>
+        </div>
+        <div class="mt-4 w-full">
+            <div class="w-full bg-black h-8 text-white flex items-center justify-center font-display text-sm tracking-widest hover:bg-electric-blue transition-colors cursor-pointer">
+                TICKET
+            </div>
+        </div>
+    </nav>
+
+    <!-- WRAPPER -->
+    <div id="app-wrapper">
+
+        <!-- HERO SPACER -->
+        <!-- This empty section allows us to see the fixed canvas underneath -->
+        <section id="hero-trigger" class="h-[120vh] relative pointer-events-none">
+            <div class="absolute bottom-12 left-12 mix-blend-difference text-white z-20">
+                <h2 class="font-display text-4xl mb-2">SCROLL TO</h2>
+                <h2 class="font-display text-6xl text-transparent" style="-webkit-text-stroke: 2px white;">BEGIN SHOW</h2>
+            </div>
+        </section>
+
+        <!-- SECTION 1: MANIFESTO (Sheet 1) -->
+        <section id="manifesto" class="sheet-section py-32 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
+                    
+                    <div class="sticky top-32">
+                        <span class="bg-black text-white px-3 py-1 font-mono text-xs uppercase mb-6 inline-block">01. Identity</span>
+                        <h2 class="font-display text-7xl md:text-9xl leading-[0.85] mb-8">
+                            BOLD <br> <span class="text-electric-blue">MOVES</span> <br> ONLY.
+                        </h2>
+                    </div>
+
+                    <div class="space-y-16 pt-12">
+                        <p class="font-sans text-2xl font-bold leading-tight">
+                            "In a world of noise, the only way to be heard is to <span class="bg-electric-blue text-white px-2">scream</span> with your aesthetic."
+                        </p>
+                        
+                        <div class="relative h-[500px] w-full border-2 border-black p-2 group hover-img">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=2864&auto=format&fit=crop" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500">
+                            <div class="absolute top-4 left-4 bg-white border border-black px-4 py-2 font-display text-xl rotate-3 group-hover:rotate-6 transition-transform">
+                                LUX PERSONA
+                            </div>
+                        </div>
+
+                        <div class="space-y-6 font-sans text-gray-600 text-lg leading-relaxed border-l-4 border-black pl-8">
+                            <p>
+                                Online Biz Diva is not a course. It is a <strong class="text-black">reprogramming</strong> of your business DNA.
+                            </p>
+                            <p>
+                                We combine the raw power of AI Automation with the refined taste of Editorial Design to build empires that are impossible to ignore.
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: THE STACK (Sheet 2) -->
+        <section id="stack" class="sheet-section py-32 px-6 bg-black text-white">
+            <div class="max-w-[90%] mx-auto">
+                <div class="flex justify-between items-end mb-24 border-b border-white pb-8">
+                    <h2 class="font-display text-6xl md:text-8xl">THE COLLECTION</h2>
+                    <p class="font-mono text-xs text-electric-blue">[ S/S 2025 ]</p>
+                </div>
+
+                <!-- Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    <!-- Card 1 -->
+                    <div class="bg-[#111] p-8 border border-white/20 hover:border-electric-blue transition-colors group cursor-pointer h-[500px] flex flex-col justify-between hover-img">
+                        <div class="flex justify-between">
+                            <span class="font-display text-4xl text-white/20 group-hover:text-electric-blue transition-colors">01</span>
+                            <i data-lucide="camera" class="w-8 h-8 text-white"></i>
+                        </div>
+                        
+                        <div class="relative h-48 overflow-hidden mb-6">
+                            <img src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=2073&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 grayscale">
+                        </div>
+
+                        <div>
+                            <h3 class="font-display text-3xl mb-2">Visuals</h3>
+                            <p class="font-sans text-xs text-gray-400">Generative AI Photography.</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div class="bg-[#111] p-8 border border-white/20 hover:border-electric-blue transition-colors group cursor-pointer h-[500px] flex flex-col justify-between hover-img">
+                        <div class="flex justify-between">
+                            <span class="font-display text-4xl text-white/20 group-hover:text-electric-blue transition-colors">02</span>
+                            <i data-lucide="cpu" class="w-8 h-8 text-white"></i>
+                        </div>
+                        
+                        <div class="relative h-48 overflow-hidden mb-6">
+                            <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 grayscale">
+                        </div>
+
+                        <div>
+                            <h3 class="font-display text-3xl mb-2">Systems</h3>
+                            <p class="font-sans text-xs text-gray-400">Automated Revenue Logic.</p>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div class="bg-[#111] p-8 border border-white/20 hover:border-electric-blue transition-colors group cursor-pointer h-[500px] flex flex-col justify-between hover-img">
+                        <div class="flex justify-between">
+                            <span class="font-display text-4xl text-white/20 group-hover:text-electric-blue transition-colors">03</span>
+                            <i data-lucide="code-2" class="w-8 h-8 text-white"></i>
+                        </div>
+                        
+                        <div class="relative h-48 overflow-hidden mb-6">
+                            <img src="https://images.unsplash.com/photo-1607705703571-c5a8695f18f6?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 grayscale">
+                        </div>
+
+                        <div>
+                            <h3 class="font-display text-3xl mb-2">Code</h3>
+                            <p class="font-sans text-xs text-gray-400">Liquid Interface Design.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: ACCESS (Sheet 3) -->
+        <section id="access" class="sheet-section h-screen flex flex-col items-center justify-center bg-electric-blue text-white relative overflow-hidden">
+            <!-- Background Text -->
+            <div class="absolute inset-0 flex flex-col justify-center pointer-events-none opacity-20">
+                <h2 class="font-display text-[20vw] leading-[0.8] whitespace-nowrap animate-pulse">JOIN JOIN JOIN</h2>
+            </div>
+
+            <div class="relative z-10 text-center bg-black p-12 border-2 border-white transform rotate-3 hover:rotate-0 transition-transform duration-500 shadow-[20px_20px_0px_rgba(255,255,255,1)]">
+                <p class="font-mono text-xs mb-6 uppercase tracking-widest text-electric-blue">Limited Availability</p>
+                <h2 class="font-display text-6xl md:text-8xl mb-8">GET<br>ACCESS</h2>
+                <button class="bg-white text-black w-full py-4 font-display text-xl uppercase hover:bg-electric-blue hover:text-white transition-colors">
+                    $97 / Month
+                </button>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="bg-black text-white py-12 px-6 relative z-20">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <h3 class="font-display text-4xl">OBD.</h3>
+                <div class="font-mono text-xs text-gray-500 flex gap-4">
+                    <span>© 2025</span>
+                    <span>BOSTON</span>
+                    <span>ONLINE</span>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+        (function() {
+            lucide.createIcons();
+            gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+            // --- 1. GLOBAL MOUSE ---
+            let mouseX = 0, mouseY = 0;
+            window.addEventListener('mousemove', e => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                
+                // Cursor
+                const ball = document.querySelector('.cursor-ball');
+                const txt = document.querySelector('.cursor-text');
+                if(ball) {
+                    gsap.to(ball, { x: mouseX, y: mouseY, duration: 0.1 });
+                }
+            });
+
+            // Hover effects
+            document.querySelectorAll('a, button, .hover-img').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    const ball = document.querySelector('.cursor-ball');
+                    const txt = document.querySelector('.cursor-text');
+                    gsap.to(ball, { width: 80, height: 80, backgroundColor: '#fff', mixBlendMode: 'difference' });
+                    gsap.to(txt, { opacity: 1 });
+                });
+                el.addEventListener('mouseleave', () => {
+                    const ball = document.querySelector('.cursor-ball');
+                    const txt = document.querySelector('.cursor-text');
+                    gsap.to(ball, { width: 20, height: 20, backgroundColor: '#2b00ff', mixBlendMode: 'difference' });
+                    gsap.to(txt, { opacity: 0 });
+                });
+            });
+
+            // --- 2. KINETIC TEXT CANVAS ---
+            const canvas = document.getElementById("kinetic-canvas");
+            const ctx = canvas.getContext("2d");
+            
+            // Offscreen canvas for Text + Video Composite
+            const textCanvas = document.createElement('canvas');
+            const textCtx = textCanvas.getContext('2d');
+
+            let w, h;
+            function resize() {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+                textCanvas.width = w;
+                textCanvas.height = h;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Assets
+            const frameCount = 160;
+            const currentFrame = index => `https://qlqjtjguyjzfwfzamihq.supabase.co/storage/v1/object/public/webp3%20sequence/frame_${index.toString().padStart(3, '0')}_delay-0.05s.webp`;
+            const images = [];
+            const frames = { frame: 0 };
+            let appStarted = false;
+
+            // App Start
+            function startApp() {
+                if(appStarted) return;
+                appStarted = true;
+
+                // Loader Exit
+                const chars = document.querySelectorAll('.type-char');
+                gsap.to(chars, { y: -50, opacity: 0, stagger: 0.1, duration: 0.5 });
+                gsap.to('#loader', { height: 0, delay: 0.6, duration: 0.8, ease: "power4.inOut", onComplete: () => document.getElementById('loader').style.display = 'none' });
+
+                renderLoop();
+                initScroll();
+            }
+
+            setTimeout(startApp, 2500);
+
+            for (let i = 0; i < frameCount; i++) {
+                const img = new Image();
+                img.src = currentFrame(i);
+                img.onload = () => {
+                    // Show partial progress?
+                    if (i === 40 && !appStarted) startApp();
+                };
+                images.push(img);
+            }
+
+            // --- RENDER LOOP ---
+            let time = 0;
+            const textString = "OBD EMPIRE OBD EMPIRE ";
+            const fontSize = 150;
+            
+            function renderLoop() {
+                time += 0.02;
+                
+                const img = images[frames.frame];
+                if (!img || !img.complete || img.naturalWidth === 0) {
+                    requestAnimationFrame(renderLoop);
+                    return;
+                }
+
+                // 1. Draw Repeating Text Grid to TextCanvas
+                textCtx.fillStyle = '#000'; // Background
+                textCtx.fillRect(0, 0, w, h);
+                
+                textCtx.fillStyle = '#fff';
+                textCtx.font = `bold ${fontSize}px Oswald`;
+                textCtx.textAlign = 'center';
+                textCtx.textBaseline = 'middle';
+
+                const rows = Math.ceil(h / fontSize) + 2;
+                // Marquee offset
+                const offsetX = (time * 100) % w;
+
+                for(let i=0; i<rows; i++) {
+                    const y = i * fontSize;
+                    // Alternating direction
+                    const dir = i % 2 === 0 ? 1 : -1;
+                    const xPos = (dir * offsetX) % (w * 2); // seamless loop logic simplified
+                    
+                    // Draw text multiple times to fill width
+                    textCtx.fillText(textString.repeat(5), w/2 + xPos, y);
+                    textCtx.fillText(textString.repeat(5), w/2 + xPos - w*2, y); // Duplicate for loop
+                }
+
+                // 2. Composite Video INSIDE Text
+                textCtx.globalCompositeOperation = 'source-in';
+                
+                // Draw Video (Scaled to cover)
+                const scale = Math.max(w / img.width, h / img.height);
+                const x = (w / 2) - (img.width / 2) * scale;
+                const y = (h / 2) - (img.height / 2) * scale;
+                textCtx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                
+                // Reset composite
+                textCtx.globalCompositeOperation = 'source-over';
+
+                // 3. Draw result to Main Canvas with DISTORTION
+                ctx.clearRect(0,0,w,h);
+                
+                // Slice effect based on mouse Y distance
+                // We'll use vertical strips and shift them based on mouse X dist
+                const strips = 20;
+                const stripH = h / strips;
+
+                for(let i=0; i<strips; i++) {
+                    const sy = i * stripH;
+                    const sh = stripH;
+                    
+                    // Calculate distance of this strip from mouse Y
+                    const dy = sy + sh/2 - mouseY;
+                    const dist = Math.abs(dy);
+                    
+                    // Distortion amount (Bulge effect)
+                    // If close to mouse Y, shift X based on mouse X
+                    let shiftX = 0;
+                    if(dist < 300) {
+                        // Normalized 0 to 1 intensity
+                        const intensity = Math.cos((dist / 300) * (Math.PI / 2));
+                        // Shift away from mouseX center? or just wave?
+                        // Let's do a wave based on time + intensity
+                        shiftX = Math.sin(time * 2 + i * 0.5) * 20 * intensity + (mouseX - w/2) * 0.05 * intensity;
+                    }
+
+                    // Source Y, H -> Dest X+shift, Y, W, H
+                    // We need to clamp/wrap for safety or just accept edges
+                    ctx.drawImage(textCanvas, 0, sy, w, sh, shiftX, sy, w, sh);
+                }
+
+                requestAnimationFrame(renderLoop);
+            }
+
+            // --- 3. SCROLL LOGIC ---
+            function initScroll() {
+                ScrollTrigger.create({
+                    trigger: "body",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 0,
+                    onUpdate: self => {
+                        const idx = Math.min(frameCount - 1, Math.ceil(self.progress * (frameCount - 1)));
+                        frames.frame = idx;
+                    }
+                });
+            }
+
+            // --- 4. NAV ---
+            window.scrollToSection = function(id) {
+                gsap.to(window, { duration: 1.5, scrollTo: id, ease: "power4.inOut" });
+            }
+
+            window.addEventListener('resize', resize);
+
+        })();
+    </script>
+</body>
+</html>
+

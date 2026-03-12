@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | THE HAVEN PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;700&family=Montserrat:wght@200;300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        serif: ['Cinzel', 'serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'haven-fjord': '#090D14',
+                        'haven-abyss': '#04060A',
+                        'haven-frost': '#E6EEF2',
+                        'haven-glacier': '#7DA0B3',
+                    },
+                    backgroundImage: {
+                        'topographic': "url('data:image/svg+xml,%3Csvg width=%22100%25%22 height=%22100%25%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noise%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.005%22 numOctaves=%222%22 result=%22turbulence%22/%3E%3CfeColorMatrix type=%22matrix%22 values=%221 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.15 0%22 in=%22turbulence%22 result=%22coloredNoise%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noise)%22/%3E%3C/svg%3E')",
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090D14;
+            color: #E6EEF2;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* CUSTOM COMPASS CURSOR */
+        .cursor-compass {
+            position: fixed; top: 0; left: 0;
+            width: 40px; height: 40px;
+            border: 1px solid rgba(125, 160, 179, 0.4);
+            border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s, border-color 0.3s, transform 0.1s;
+            mix-blend-mode: screen;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cursor-compass::before, .cursor-compass::after {
+            content: ''; position: absolute;
+            background: #7DA0B3;
+        }
+        .cursor-compass::before { width: 1px; height: 10px; top: -5px; } /* North marker */
+        .cursor-compass::after { width: 4px; height: 4px; border-radius: 50%; } /* Center dot */
+        
+        .cursor-compass.active {
+            width: 60px; height: 60px;
+            border-color: #E6EEF2;
+            background: rgba(125, 160, 179, 0.1);
+            backdrop-filter: blur(2px);
+        }
+
+        /* FROSTED GLASS */
+        .frost-glass {
+            background: rgba(9, 13, 20, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(230, 238, 242, 0.05);
+        }
+
+        /* TEXT MASKING REVEAL */
+        .reveal-text {
+            clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+            transition: clip-path 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+            transform: translateY(20px);
+        }
+        .reveal-text.visible {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+            transform: translateY(0);
+        }
+
+        /* PINNED GALLERY STYLES */
+        .gallery-left {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .gallery-right {
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        .gallery-img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.8s ease, transform 1.5s ease;
+            transform: scale(1.05);
+        }
+        .gallery-img.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* LUXURY BUTTON */
+        .btn-haven {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.2rem 3rem;
+            background: transparent;
+            color: #E6EEF2;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            border: 1px solid rgba(230, 238, 242, 0.3);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+        .btn-haven::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #E6EEF2;
+            transform: scaleY(0); transform-origin: bottom;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: -1;
+        }
+        .btn-haven:hover {
+            color: #090D14;
+            border-color: #E6EEF2;
+        }
+        .btn-haven:hover::before { transform: scaleY(1); }
+
+        /* INPUTS */
+        .haven-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(230, 238, 242, 0.2);
+            padding: 1.5rem 0;
+            color: #E6EEF2;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 300;
+            transition: border-color 0.4s ease;
+        }
+        .haven-input:focus {
+            outline: none;
+            border-bottom-color: #7DA0B3;
+        }
+        .haven-input::placeholder {
+            color: rgba(230, 238, 242, 0.2);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="selection:bg-haven-glacier selection:text-haven-fjord">
+
+    <!-- GLOBAL ELEMENTS -->
+    <div class="cursor-compass hidden md:flex"></div>
+    <div class="fixed inset-0 bg-topographic opacity-20 pointer-events-none z-0 mix-blend-overlay"></div>
+
+    <!-- SHUTTER OVERLAY (FOR LOAD/SUBMIT) -->
+    <div id="shutter-screen" class="fixed inset-0 bg-haven-abyss z-[60000] flex flex-col items-center justify-center transition-transform duration-1000 transform origin-top">
+        <i data-lucide="compass" class="w-12 h-12 text-haven-glacier animate-spin-slow mb-6"></i>
+        <div class="font-mono text-xs uppercase tracking-[0.5em] text-haven-frost animate-pulse">Establishing Coordinates</div>
+    </div>
+
+    <!-- NAVIGATION -->
+    <nav class="fixed top-0 w-full p-8 md:p-12 z-50 flex justify-between items-start mix-blend-difference" id="main-nav">
+        <div class="flex flex-col cursor-pointer group" onclick="gsap.to(window, {scrollTo: 0, duration: 1.5, ease: 'power3.inOut'})">
+            <span class="font-serif text-2xl tracking-[0.3em] text-haven-frost uppercase">HAVEN</span>
+            <div class="h-px w-0 bg-haven-glacier group-hover:w-full transition-all duration-700 mt-2"></div>
+        </div>
+        
+        <div class="hidden md:flex flex-col items-end gap-2">
+            <div class="flex gap-10 font-mono text-[10px] uppercase tracking-[0.2em] text-haven-frost/70 font-medium">
+                <button onclick="scrollToSection('ethos')" class="hover:text-haven-frost transition-colors hover-target">The Philosophy</button>
+                <button onclick="scrollToSection('sanctuaries')" class="hover:text-haven-frost transition-colors hover-target">Sanctuaries</button>
+                <button onclick="scrollToSection('clearance')" class="text-haven-glacier border-b border-haven-glacier/30 pb-1 hover:border-haven-glacier hover-target">Request Clearance</button>
+            </div>
+            <span class="font-mono text-[8px] text-haven-glacier/50 tracking-widest mt-2" id="nav-coords">78°13'N 15°38'E</span>
+        </div>
+    </nav>
+
+    <!-- MAIN SCROLL CONTENT -->
+    <main class="relative z-10">
+
+        <!-- ================= SECTION 1: HERO (THE VOID) ================= -->
+        <section id="hero" class="min-h-screen relative flex items-center justify-center overflow-hidden bg-haven-abyss">
+            
+            <!-- Cinematic Video Background -->
+            <div class="absolute inset-0 z-0">
+                <video autoplay loop muted playsinline class="w-full h-full object-cover opacity-60 scale-105" id="hero-vid">
+                     <!-- Cold, remote landscape -->
+                     <source src="https://www.pexels.com/download/video/2169880/" type="video/mp4">
+                </video>
+                <div class="absolute inset-0 bg-gradient-to-t from-haven-fjord via-haven-fjord/20 to-haven-abyss/80"></div>
+            </div>
+
+            <!-- Text Content -->
+            <div class="relative z-10 text-center w-full px-6 pt-20 flex flex-col items-center">
+                
+                <div class="overflow-hidden mb-6">
+                    <span class="font-mono text-[10px] uppercase tracking-[0.5em] text-haven-glacier reveal-text block">The Ultimate Luxury</span>
+                </div>
+                
+                <h1 class="font-serif text-5xl md:text-[8vw] leading-[1.1] text-haven-frost font-light tracking-widest uppercase flex flex-col">
+                    <div class="overflow-hidden"><span class="block reveal-text">Absolute</span></div>
+                    <div class="overflow-hidden"><span class="block reveal-text text-haven-glacier">Isolation.</span></div>
+                </h1>
+                
+                <div class="overflow-hidden mt-12">
+                    <p class="font-sans text-lg md:text-xl font-light text-haven-frost/60 max-w-2xl mx-auto leading-relaxed reveal-text">
+                        Off-grid architectural sanctuaries for the world's elite. Disconnect from the noise. Command the silence.
+                    </p>
+                </div>
+
+                <div class="overflow-hidden mt-16">
+                    <div class="reveal-text">
+                        <button class="btn-haven hover-target" onclick="scrollToSection('clearance')">
+                            Initiate Protocol
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scroll Indicator -->
+            <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 opacity-0 reveal-fade" style="transition-delay: 1.5s;">
+                <div class="w-px h-16 bg-gradient-to-b from-haven-glacier to-transparent"></div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: THE ETHOS ================= -->
+        <section id="ethos" class="py-32 md:py-48 px-6 relative z-10 bg-haven-fjord">
+            <div class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-20 items-center">
+                
+                <!-- Left: Typography -->
+                <div class="lg:col-span-7 space-y-12 pr-0 lg:pr-12">
+                    <i data-lucide="map" class="w-8 h-8 text-haven-glacier opacity-50"></i>
+                    <h2 class="font-serif text-4xl md:text-6xl leading-[1.2] tracking-wide">
+                        In a hyper-connected world, <br>
+                        <span class="text-haven-glacier italic">disconnection is the highest status symbol.</span>
+                    </h2>
+                    <p class="font-sans text-haven-frost/60 text-lg leading-relaxed font-light max-w-xl">
+                        Haven Protocol operates exclusively in the shadow market. We represent private islands, subterranean estates, and alpine glasshouses that do not exist on public registries. Our properties are designed to be impenetrable sanctuaries.
+                    </p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 pt-12 border-t border-white/5">
+                        <div class="space-y-3">
+                            <span class="font-mono text-[10px] text-haven-glacier uppercase tracking-widest">Parameter 01</span>
+                            <h3 class="font-serif text-xl tracking-wider">Zero Footprint</h3>
+                            <p class="font-sans text-xs text-haven-frost/50 leading-relaxed font-light">Self-sustaining energy grids and localized water filtration systems. Complete autonomy.</p>
+                        </div>
+                        <div class="space-y-3">
+                            <span class="font-mono text-[10px] text-haven-glacier uppercase tracking-widest">Parameter 02</span>
+                            <h3 class="font-serif text-xl tracking-wider">Airspace Control</h3>
+                            <p class="font-sans text-xs text-haven-frost/50 leading-relaxed font-light">All sanctuaries feature private helipads and restricted aerial fly zones.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Abstract Visual -->
+                <div class="lg:col-span-5 relative h-[600px] flex items-center justify-center">
+                    <!-- Topo map circle -->
+                    <div class="absolute w-[120%] h-[120%] bg-topographic opacity-30 rounded-full animate-spin-slow" style="animation-duration: 60s;"></div>
+                    <div class="relative w-full aspect-[3/4] overflow-hidden rounded-t-full frost-glass p-2 z-10">
+                        <img src="https://images.unsplash.com/photo-1478719059408-592965723cbc?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover grayscale opacity-80" alt="Minimalist Architecture">
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: SANCTUARIES (PINNED CROSSFADE) ================= -->
+        <!-- Desktop: Pinned. Mobile: Stacked -->
+        <section id="sanctuaries" class="bg-haven-abyss relative z-10 border-y border-white/5">
+            
+            <div class="hidden lg:grid grid-cols-2 max-w-[1800px] mx-auto h-screen" id="pin-master">
+                
+                <!-- LEFT: Scrolling Text Details -->
+                <div class="gallery-left px-20 border-r border-white/5 relative z-20">
+                    <span class="absolute top-12 left-20 font-mono text-[10px] uppercase tracking-[0.3em] text-haven-glacier">Active Directory</span>
+                    
+                    <div class="h-screen flex flex-col justify-center section-detail" id="detail-1">
+                        <span class="font-mono text-xs border border-haven-glacier/30 text-haven-glacier px-3 py-1 rounded-full uppercase tracking-widest w-fit mb-8">Classification: Sub-Zero</span>
+                        <h2 class="font-serif text-6xl tracking-widest mb-6">Svalbard<br><span class="text-haven-glacier italic">Vault.</span></h2>
+                        <ul class="space-y-4 font-mono text-xs text-haven-frost/70 mb-10">
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Coordinates</span> <span>78°13'N 15°38'E</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Isolation Index</span> <span class="text-white">Class IX</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Access</span> <span>Icebreaker / Heli</span></li>
+                        </ul>
+                        <p class="font-sans font-light text-haven-frost/50 leading-relaxed max-w-md">A brutalist concrete and reinforced glass structure built directly into the permafrost. Featuring geothermal heating and 360-degree views of the aurora borealis.</p>
+                    </div>
+
+                    <div class="h-screen flex flex-col justify-center section-detail" id="detail-2">
+                        <span class="font-mono text-xs border border-haven-glacier/30 text-haven-glacier px-3 py-1 rounded-full uppercase tracking-widest w-fit mb-8">Classification: Oceanic</span>
+                        <h2 class="font-serif text-6xl tracking-widest mb-6">Atoll<br><span class="text-haven-glacier italic">Prime.</span></h2>
+                        <ul class="space-y-4 font-mono text-xs text-haven-frost/70 mb-10">
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Coordinates</span> <span>16°30'S 151°45'W</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Isolation Index</span> <span class="text-white">Class VIII</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Access</span> <span>Seaplane Only</span></li>
+                        </ul>
+                        <p class="font-sans font-light text-haven-frost/50 leading-relaxed max-w-md">An entirely sovereign reef system in the South Pacific. The estate is submerged 3 meters below sea level, offering panoramic underwater observation decks and total surface invisibility.</p>
+                    </div>
+
+                    <div class="h-screen flex flex-col justify-center section-detail" id="detail-3">
+                        <span class="font-mono text-xs border border-white/30 text-white px-3 py-1 rounded-full uppercase tracking-widest w-fit mb-8">Classification: Arid</span>
+                        <h2 class="font-serif text-6xl tracking-widest mb-6">Sonora<br><span class="text-haven-glacier italic">Echo.</span></h2>
+                        <ul class="space-y-4 font-mono text-xs text-haven-frost/70 mb-10">
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Coordinates</span> <span>30°32'N 112°05'W</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Isolation Index</span> <span class="text-white">Class X (Max)</span></li>
+                            <li class="flex justify-between border-b border-white/5 pb-2"><span>Access</span> <span>Private Runway</span></li>
+                        </ul>
+                        <p class="font-sans font-light text-haven-frost/50 leading-relaxed max-w-md">Camouflaged perfectly into the desert topography. The structure utilizes electrochromic glass that shifts from transparent to mirrored obsidian, ensuring absolute stealth from aerial surveillance.</p>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Pinned Images -->
+                <div class="gallery-right z-10" id="pin-visuals">
+                    <!-- Image 1 -->
+                    <img src="https://images.pexels.com/photos/7031407/pexels-photo-7031407.jpeg?q=80&w=1200&auto=format&fit=crop" class="gallery-img active" id="img-1" alt="Arctic House">
+                    <!-- Image 2 -->
+                    <img src="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?q=80&w=1200&auto=format&fit=crop" class="gallery-img" id="img-2" alt="Ocean House">
+                    <!-- Image 3 -->
+                    <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1200&auto=format&fit=crop" class="gallery-img" id="img-3" alt="Desert House">
+                    
+                    <!-- Overlay Grain to tie it together -->
+                    <div class="absolute inset-0 bg-haven-abyss/20 mix-blend-multiply pointer-events-none"></div>
+                    <!-- Crosshair -->
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-white/10 rounded-full flex items-center justify-center opacity-30 pointer-events-none">
+                        <div class="w-2 h-2 bg-white/50 rounded-full"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- MOBILE FALLBACK: Stacked layout -->
+            <div class="lg:hidden px-6 py-24 space-y-32">
+                <!-- Mobile 1 -->
+                <div class="space-y-8">
+                    <div class="aspect-square w-full relative overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1518182170546-076616fd6207?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover" alt="Arctic House">
+                    </div>
+                    <span class="font-mono text-[10px] border border-haven-glacier/30 text-haven-glacier px-3 py-1 rounded-full uppercase tracking-widest w-fit">Sub-Zero</span>
+                    <h2 class="font-serif text-4xl tracking-widest">Svalbard Vault.</h2>
+                    <p class="font-sans font-light text-haven-frost/60 text-sm leading-relaxed">A brutalist concrete and reinforced glass structure built directly into the permafrost. Featuring geothermal heating and 360-degree views of the aurora borealis.</p>
+                </div>
+                <!-- Mobile 2 -->
+                <div class="space-y-8">
+                    <div class="aspect-square w-full relative overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover" alt="Ocean House">
+                    </div>
+                    <span class="font-mono text-[10px] border border-haven-glacier/30 text-haven-glacier px-3 py-1 rounded-full uppercase tracking-widest w-fit">Oceanic</span>
+                    <h2 class="font-serif text-4xl tracking-widest">Atoll Prime.</h2>
+                    <p class="font-sans font-light text-haven-frost/60 text-sm leading-relaxed">An entirely sovereign reef system in the South Pacific. Submerged 3 meters below sea level, offering panoramic underwater observation decks.</p>
+                </div>
+                <!-- Mobile 3 -->
+                <div class="space-y-8">
+                    <div class="aspect-square w-full relative overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover" alt="Desert House">
+                    </div>
+                    <span class="font-mono text-[10px] border border-white/30 text-white px-3 py-1 rounded-full uppercase tracking-widest w-fit">Arid</span>
+                    <h2 class="font-serif text-4xl tracking-widest">Sonora Echo.</h2>
+                    <p class="font-sans font-light text-haven-frost/60 text-sm leading-relaxed">Camouflaged perfectly into the desert topography. Utilizes electrochromic glass ensuring absolute stealth from aerial surveillance.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: THE CLEARANCE (CONTACT) ================= -->
+        <section id="clearance" class="py-32 md:py-48 px-6 bg-haven-fjord relative z-10">
+            <div class="max-w-3xl mx-auto relative">
+                
+                <div class="text-center mb-24">
+                    <i data-lucide="shield-alert" class="w-8 h-8 text-haven-glacier mx-auto mb-8"></i>
+                    <h2 class="font-serif text-4xl md:text-6xl tracking-widest mb-6 uppercase">Security<br><span class="text-haven-glacier">Clearance.</span></h2>
+                    <p class="font-sans text-haven-frost/50 font-light leading-relaxed text-sm max-w-md mx-auto">
+                        Provide preliminary credentials to request access to the Haven directory. Verification requires 48 hours.
+                    </p>
+                </div>
+
+                <div class="frost-glass p-8 md:p-16 relative">
+                    <!-- Corner Scanners -->
+                    <div class="absolute top-0 left-0 w-4 h-4 border-t border-l border-haven-glacier/50"></div>
+                    <div class="absolute top-0 right-0 w-4 h-4 border-t border-r border-haven-glacier/50"></div>
+                    <div class="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-haven-glacier/50"></div>
+                    <div class="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-haven-glacier/50"></div>
+
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-12 relative z-10">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase tracking-[0.2em] text-haven-glacier mb-2 block">Principal / Family Name</label>
+                                <input type="text" class="haven-input hover-target" placeholder="Enter Identity" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase tracking-[0.2em] text-haven-glacier mb-2 block">Representation Entity</label>
+                                <input type="text" class="haven-input hover-target" placeholder="Family Office / Concierge" required>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="font-mono text-[9px] uppercase tracking-[0.2em] text-haven-glacier mb-2 block">Secure Routing Channel</label>
+                            <input type="email" class="haven-input hover-target" placeholder="Encrypted Email Address" required>
+                        </div>
+
+                        <div>
+                            <label class="font-mono text-[9px] uppercase tracking-[0.2em] text-haven-glacier mb-4 block">Desired Isolation Level</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-[10px] uppercase text-center">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="iso_level" class="peer sr-only" value="moderate" checked>
+                                    <div class="p-4 border border-white/10 peer-checked:border-haven-glacier peer-checked:bg-haven-glacier/10 transition-all hover-target">Class VII (Remote)</div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="iso_level" class="peer sr-only" value="high">
+                                    <div class="p-4 border border-white/10 peer-checked:border-haven-glacier peer-checked:bg-haven-glacier/10 transition-all hover-target">Class IX (Extreme)</div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="iso_level" class="peer sr-only" value="absolute">
+                                    <div class="p-4 border border-white/10 peer-checked:border-haven-glacier peer-checked:bg-haven-glacier/10 transition-all hover-target">Class X (Absolute)</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="pt-8 text-center">
+                            <button type="submit" class="btn-haven w-full hover-target">
+                                Transmit Credentials
+                            </button>
+                            <p class="font-mono text-[8px] text-haven-frost/30 uppercase tracking-[0.3em] mt-6 flex justify-center items-center gap-2">
+                                <div class="w-1 h-1 bg-red-500 rounded-full"></div> NDA Binding
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-modal" class="fixed inset-0 bg-haven-abyss z-[60000] hidden flex-col items-center justify-center px-6">
+        <div class="text-center max-w-lg mx-auto transform translate-y-10 opacity-0" id="success-content">
+            <div class="w-20 h-20 border border-haven-glacier rounded-full flex items-center justify-center mx-auto mb-8 text-haven-glacier">
+                <i data-lucide="shield-check" class="w-8 h-8"></i>
+            </div>
+            <h2 class="font-serif text-3xl md:text-5xl text-haven-frost mb-6 uppercase tracking-widest">Signal Verified.</h2>
+            <p class="font-sans text-haven-frost/50 font-light leading-relaxed mb-12">
+                Your dossier has entered the secure queue. A Haven liaison will attempt contact via your encrypted channel within 48 hours.
+            </p>
+            <button onclick="closeSuccess()" class="font-mono text-[10px] uppercase tracking-[0.3em] border-b border-haven-glacier/50 text-haven-glacier pb-1 hover:text-white transition-colors hover-target">
+                Close Terminal
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-haven-abyss border-t border-white/5 py-12 px-8 relative z-20">
+        <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="font-serif text-xl tracking-[0.3em] text-haven-frost">HAVEN.</div>
+            <div class="flex gap-10 font-mono text-[9px] uppercase tracking-[0.3em] text-haven-frost/40">
+                <a href="#" class="hover:text-haven-glacier transition-colors hover-target">Encrypted Policies</a>
+                <a href="#" class="hover:text-haven-glacier transition-colors hover-target">Board Access</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- COMPASS CURSOR ENGINE ---
+        const cursor = document.querySelector('.cursor-compass');
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            // Smooth cursor follow
+            gsap.to(cursor, { x: mouseX, y: mouseY, duration: 0.1 });
+        });
+        
+        // Hover States
+        document.querySelectorAll('.hover-target, button, input, a, label').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+        });
+
+        // --- NAV COORDINATES UPDATER ---
+        const coordDisplay = document.getElementById('nav-coords');
+        window.addEventListener('scroll', () => {
+            // Fake coordinate shifting based on scroll depth
+            const scrollPct = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+            const lat = (78 - (scrollPct * 48)).toFixed(0);
+            const lng = (15 + (scrollPct * 97)).toFixed(0);
+            coordDisplay.innerText = `${lat}°13'N ${lng}°38'E`;
+        });
+
+        // --- NAV BAR SCROLL EFFECT ---
+        const nav = document.getElementById('main-nav');
+        window.addEventListener('scroll', () => {
+            if(window.scrollY > 50) {
+                nav.classList.add('bg-haven-abyss/80', 'backdrop-blur-md', 'border-b', 'border-white/5');
+                nav.classList.remove('p-8', 'md:p-12');
+                nav.classList.add('p-6', 'md:p-8');
+            } else {
+                nav.classList.remove('bg-haven-abyss/80', 'backdrop-blur-md', 'border-b', 'border-white/5');
+                nav.classList.add('p-8', 'md:p-12');
+                nav.classList.remove('p-6', 'md:p-8');
+            }
+        });
+
+        // --- INITIAL REVEAL ANIMATIONS ---
+        window.addEventListener('load', () => {
+            // Drop the shutter
+            const shutter = document.getElementById('shutter-screen');
+            gsap.to(shutter, { scaleY: 0, duration: 1.5, ease: "power4.inOut", delay: 0.5, onComplete: () => {
+                shutter.style.display = 'none';
+                // Trigger Text reveals
+                gsap.to('.reveal-text', { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', y: 0, duration: 1.2, stagger: 0.15, ease: "power3.out" });
+                gsap.to('.reveal-fade', { opacity: 0.5, duration: 1, delay: 0.8 });
+            }});
+        });
+
+        // --- DESKTOP: PINNED CROSSFADE GALLERY ---
+        if (window.innerWidth > 1024) {
+            
+            // Pin the master container
+            ScrollTrigger.create({
+                trigger: "#pin-master",
+                start: "top top",
+                end: "+=300%", // 3 sections worth of scroll
+                pin: true,
+            });
+
+            // For each detail section, trigger the corresponding image crossfade
+            const details = gsap.utils.toArray('.section-detail');
+            const images = gsap.utils.toArray('.gallery-img');
+
+            details.forEach((detail, i) => {
+                ScrollTrigger.create({
+                    trigger: detail,
+                    start: "top center",
+                    end: "bottom center",
+                    // Use a separate scroll trigger for the text scrolling up within the pin
+                    // Actually, simpler approach: map scroll progress to active index
+                });
+            });
+
+            // Logic to handle the crossfade based on total scroll within the pinned area
+            ScrollTrigger.create({
+                trigger: "#pin-master",
+                start: "top top",
+                end: "+=300%",
+                onUpdate: (self) => {
+                    const progress = self.progress;
+                    const totalItems = images.length;
+                    // Find which section we are in (0, 1, or 2)
+                    let activeIndex = Math.min(Math.floor(progress * totalItems), totalItems - 1);
+                    
+                    // Specific tweak: if progress is exactly 1, it might try to select index 3
+                    if(activeIndex >= totalItems) activeIndex = totalItems - 1;
+
+                    // Update Images
+                    images.forEach((img, i) => {
+                        if (i === activeIndex) {
+                            img.classList.add('active');
+                        } else {
+                            img.classList.remove('active');
+                        }
+                    });
+
+                    // Scroll the left text container natively by transforming it
+                    const scrollY = progress * (100 * (totalItems - 1));
+                    gsap.set('.gallery-left', { scrollTo: { y: scrollY } }); // Or simple translateY
+                }
+            });
+
+            // Better implementation for scrolling the left text:
+            const leftScroll = gsap.timeline({
+                scrollTrigger: {
+                    trigger: "#pin-master",
+                    start: "top top",
+                    end: "+=300%",
+                    scrub: 1,
+                }
+            });
+            // Move the inner details up by 2 viewport heights (since there are 3 items, we move up 2 times)
+            leftScroll.to('.section-detail', { yPercent: -200, ease: "none" });
+        }
+
+
+        // --- SMOOTH SCROLL ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.8, scrollTo: { y: `#${id}`, offsetY: 60 }, ease: "power3.inOut" });
+        }
+
+        // --- SUCCESS MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.6 });
+            gsap.fromTo(content, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 1, delay: 0.2, ease: "power3.out" });
+        }
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            gsap.to(content, { y: -20, opacity: 0, duration: 0.4 });
+            gsap.to(modal, { opacity: 0, duration: 0.6, delay: 0.2, onComplete: () => {
+                modal.style.display = 'none';
+            }});
+        }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | STRATOS AVIATION</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;700;900&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Unbounded', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'stratos-void': '#020617',     /* Deep Space */
+                        'stratos-sky': '#0ea5e9',      /* Aero Blue */
+                        'stratos-cloud': '#f8fafc',    /* Crisp White */
+                        'stratos-metal': '#334155',    /* Titanium */
+                        'stratos-glass': 'rgba(248, 250, 252, 0.05)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* BASE DYNAMICS */
+        body {
+            /* Initial color, will be overridden by GSAP */
+            background-color: #0ea5e9; 
+            color: #f8fafc;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* THE NOISE OVERLAY */
+        .aero-noise {
+            position: fixed; inset: 0; pointer-events: none; z-index: 10;
+            opacity: 0.15; mix-blend-mode: overlay;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)"/%3E%3C/svg%3E');
+        }
+
+        /* GLASS COCKPIT PANELS */
+        .canopy-glass {
+            background: rgba(2, 6, 23, 0.4);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        /* CUSTOM CURSOR */
+        .cursor-reticle {
+            position: fixed; top: 0; left: 0;
+            width: 40px; height: 40px;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+            mix-blend-mode: difference;
+        }
+        .cursor-reticle::before {
+            content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: #0ea5e9;
+        }
+        .cursor-reticle::after {
+            content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 100%; background: #0ea5e9;
+        }
+        .cursor-reticle .dot {
+            position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: #fff;
+            border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #fff;
+        }
+        .cursor-reticle.active { width: 60px; height: 60px; }
+        .cursor-reticle.active::before, .cursor-reticle.active::after { background: #fff; }
+
+        /* AERODYNAMIC MASKING */
+        .aero-mask {
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 50% 100%, 0 85%);
+        }
+        .reveal-sweep {
+            clip-path: inset(0 100% 0 0);
+            transition: clip-path 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .reveal-sweep.active {
+            clip-path: inset(0 0 0 0);
+        }
+
+        /* BUTTONS */
+        .btn-stratos {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            color: #020617;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            padding: 1.25rem 3rem;
+            border-radius: 500px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-stratos:hover {
+            box-shadow: 0 0 30px rgba(14, 165, 233, 0.5);
+            background: #0ea5e9;
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        /* INPUTS */
+        .flight-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.25rem 1.5rem;
+            color: #f8fafc;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        .flight-input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.05);
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.2);
+        }
+        .flight-input::placeholder { color: rgba(248, 250, 252, 0.3); }
+
+        /* RADAR SCANNER */
+        .radar-sweep {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 100%; height: 100%;
+            transform-origin: 0 0;
+            background: linear-gradient(90deg, transparent 50%, rgba(14, 165, 233, 0.2) 100%);
+            animation: radar 4s linear infinite;
+            border-right: 2px solid #0ea5e9;
+            pointer-events: none;
+        }
+        @keyframes radar { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="selection:bg-stratos-sky selection:text-white" id="env-body">
+
+    <!-- HUD OVERLAYS -->
+    <div class="aero-noise"></div>
+    <div class="cursor-reticle hidden md:block"><div class="dot"></div></div>
+
+    <!-- FIXED TOP NAV -->
+    <nav class="fixed top-0 w-full p-8 z-50 flex justify-between items-start pointer-events-none mix-blend-difference">
+        <div class="pointer-events-auto flex items-center gap-4 cursor-pointer group" onclick="scrollToSection('hero')">
+            <i data-lucide="plane-takeoff" class="w-6 h-6 text-stratos-sky group-hover:-translate-y-1 transition-transform"></i>
+            <div class="flex flex-col">
+                <span class="font-display font-black text-2xl tracking-widest text-white leading-none">STRATOS</span>
+                <span class="font-mono text-[8px] text-stratos-sky uppercase tracking-[0.4em] mt-1">Private_Aviation</span>
+            </div>
+        </div>
+        
+        <div class="pointer-events-auto hidden md:flex items-center gap-12 font-mono text-[10px] uppercase tracking-widest text-gray-400 font-bold">
+            <button onclick="scrollToSection('fleet')" class="hover:text-stratos-sky transition-colors hover-target">The Fleet</button>
+            <button onclick="scrollToSection('membership')" class="hover:text-stratos-sky transition-colors hover-target">Syndicate</button>
+            <button onclick="scrollToSection('charter')" class="text-white border-b border-white pb-1 hover:border-stratos-sky hover:text-stratos-sky transition-colors hover-target">
+                Request Charter
+            </button>
+        </div>
+    </nav>
+
+    <!-- FIXED BOTTOM TELEMETRY (HUD) -->
+    <div class="fixed bottom-0 w-full p-8 z-50 flex justify-between items-end pointer-events-none mix-blend-difference text-white">
+        <div class="flex flex-col gap-1">
+            <span class="font-mono text-[9px] uppercase tracking-[0.4em] text-gray-400">Current_Altitude</span>
+            <div class="flex items-baseline gap-2">
+                <span class="font-display text-4xl leading-none" id="altimeter">0</span>
+                <span class="font-mono text-xs text-stratos-sky">FT</span>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-end gap-1">
+            <span class="font-mono text-[9px] uppercase tracking-[0.4em] text-gray-400">Heading // Mach</span>
+            <div class="flex gap-6 font-mono text-sm">
+                <span>HDG: 270°</span>
+                <span class="text-stratos-sky">M: <span id="mach-meter">0.00</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN FLIGHT PATH (SCROLL CONTENT) -->
+    <main class="relative z-10">
+
+        <!-- ================= SECTION 1: HERO (TAKEOFF) ================= -->
+        <section id="hero" class="min-h-screen relative flex items-center justify-center overflow-hidden">
+            
+            <!-- Video Background: Clouds from above -->
+            <div class="absolute inset-0 z-0">
+                <video autoplay loop muted playsinline class="w-full h-full object-cover opacity-80 mix-blend-screen scale-105" id="cloud-vid">
+                     <source src="https://www.pexels.com/download/video/854151/" type="video/mp4">
+                </video>
+                <div class="absolute inset-0 bg-gradient-to-t from-stratos-void via-transparent to-transparent opacity-50"></div>
+            </div>
+
+            <!-- UI Container -->
+            <div class="relative z-10 w-full max-w-7xl mx-auto px-6 text-center pt-20">
+                <div class="inline-flex items-center gap-3 border border-white/20 bg-white/5 backdrop-blur-md px-4 py-1.5 rounded-full mb-8 reveal-up opacity-0">
+                    <div class="w-1.5 h-1.5 bg-stratos-sky rounded-full animate-pulse"></div>
+                    <span class="font-mono text-[10px] uppercase tracking-widest text-white">Clearance Granted</span>
+                </div>
+                
+                <h1 class="font-display font-black text-6xl md:text-[10vw] leading-[0.85] tracking-tighter uppercase mb-6 reveal-up opacity-0" style="transition-delay: 0.1s;">
+                    ELEVATE<br>
+                    <span class="text-transparent" style="-webkit-text-stroke: 1px rgba(255,255,255,0.5);">TRAJECTORY.</span>
+                </h1>
+                
+                <p class="font-sans text-lg md:text-xl font-light text-gray-300 max-w-2xl mx-auto leading-relaxed mb-12 reveal-up opacity-0" style="transition-delay: 0.2s;">
+                    Uncompromised global mobility for the ultra-high-net-worth individual. Access the world's most elite private fleet. On demand.
+                </p>
+
+                <div class="reveal-up opacity-0" style="transition-delay: 0.3s;">
+                    <button class="btn-stratos hover-target" onclick="scrollToSection('charter')">
+                        File Flight Plan
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Scroll Visualizer -->
+            <div class="absolute bottom-32 left-1/2 -translate-x-1/2 w-[1px] h-24 bg-white/20 overflow-hidden reveal-up opacity-0" style="transition-delay: 0.6s;">
+                <div class="w-full h-1/2 bg-stratos-sky animate-[scroll-down_2s_infinite]"></div>
+            </div>
+        </section>
+        <style>@keyframes scroll-down { 0% { transform: translateY(-100%); } 100% { transform: translateY(200%); } }</style>
+
+        <!-- ================= SECTION 2: THE FLEET (HARDWARE) ================= -->
+        <section id="fleet" class="py-40 px-6 relative z-10 border-t border-white/10">
+            <div class="max-w-[1400px] mx-auto">
+                
+                <div class="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+                    <div>
+                        <span class="font-mono text-xs text-stratos-sky uppercase tracking-[0.4em] mb-4 block">Hardware Specifications</span>
+                        <h2 class="font-display text-5xl md:text-7xl font-bold">THE FLEET.</h2>
+                    </div>
+                    <div class="font-mono text-[10px] text-gray-400 text-right uppercase tracking-widest">
+                        Total Assets: 42 Aircraft<br>
+                        Global Reach: Infinite
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    
+                    <!-- Jet Class 1 -->
+                    <div class="canopy-glass rounded-[2rem] p-8 md:p-12 hover-target group cursor-pointer border-t border-stratos-sky/30 hover:border-stratos-sky transition-colors duration-500">
+                        <div class="aspect-video bg-black rounded-xl overflow-hidden relative mb-10">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700 grayscale group-hover:grayscale-0">
+                                <!-- Abstract dark sleek metal video -->
+                                 <source src="https://www.pexels.com/download/video/28586467/" type="video/mp4">
+                            </video>
+                            <div class="absolute top-4 left-4 bg-black/80 backdrop-blur-md px-3 py-1 font-mono text-[10px] text-stratos-sky border border-white/10 rounded">
+                                CLASS: ULTRA-LONG RANGE
+                            </div>
+                        </div>
+                        <h3 class="font-display text-4xl mb-4">GULFSTREAM G700</h3>
+                        <p class="font-sans text-gray-400 font-light mb-8 leading-relaxed">
+                            The pinnacle of private aviation. Featuring the most spacious cabin in the industry and a range that connects almost any two cities globally.
+                        </p>
+                        <div class="grid grid-cols-3 gap-4 border-t border-white/10 pt-8 font-mono text-[10px] uppercase">
+                            <div>
+                                <span class="text-gray-500 block mb-1">Range</span>
+                                <span class="text-white font-bold text-sm">7,500 NM</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block mb-1">Speed</span>
+                                <span class="text-white font-bold text-sm">MACH 0.925</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block mb-1">Capacity</span>
+                                <span class="text-white font-bold text-sm">19 PAX</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jet Class 2 -->
+                    <div class="canopy-glass rounded-[2rem] p-8 md:p-12 hover-target group cursor-pointer border-t border-stratos-sky/30 hover:border-stratos-sky transition-colors duration-500 lg:translate-y-24">
+                        <div class="aspect-video bg-black rounded-xl overflow-hidden relative mb-10">
+                            <!-- Parallax image alternative -->
+                            <img src="https://images.unsplash.com/photo-1540962351504-03099e0a754b?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 grayscale group-hover:grayscale-0">
+                            <div class="absolute top-4 left-4 bg-black/80 backdrop-blur-md px-3 py-1 font-mono text-[10px] text-stratos-sky border border-white/10 rounded">
+                                CLASS: SUPER-MIDSIZE
+                            </div>
+                        </div>
+                        <h3 class="font-display text-4xl mb-4">CHALLENGER 350</h3>
+                        <p class="font-sans text-gray-400 font-light mb-8 leading-relaxed">
+                            The definitive choice for transcontinental travel. Optimal balance of performance, operating efficiency, and cabin comfort.
+                        </p>
+                        <div class="grid grid-cols-3 gap-4 border-t border-white/10 pt-8 font-mono text-[10px] uppercase">
+                            <div>
+                                <span class="text-gray-500 block mb-1">Range</span>
+                                <span class="text-white font-bold text-sm">3,200 NM</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block mb-1">Speed</span>
+                                <span class="text-white font-bold text-sm">MACH 0.83</span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500 block mb-1">Capacity</span>
+                                <span class="text-white font-bold text-sm">10 PAX</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: MEMBERSHIP (THE SYNDICATE) ================= -->
+        <section id="membership" class="py-40 px-6 relative z-10 border-t border-white/5">
+            <div class="max-w-[1200px] mx-auto">
+                <div class="canopy-glass rounded-[3rem] p-10 md:p-20 relative overflow-hidden">
+                    <!-- Radar Background FX -->
+                    <div class="absolute -right-[20%] -top-[20%] w-[800px] h-[800px] border border-stratos-sky/20 rounded-full opacity-20 pointer-events-none">
+                        <div class="radar-sweep"></div>
+                        <div class="absolute top-1/2 left-1/2 w-full h-px bg-stratos-sky/20 -translate-y-1/2 -translate-x-1/2"></div>
+                        <div class="absolute top-1/2 left-1/2 w-px h-full bg-stratos-sky/20 -translate-x-1/2 -translate-y-1/2"></div>
+                    </div>
+
+                    <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                        <div>
+                            <span class="font-mono text-[10px] text-stratos-sky uppercase tracking-[0.4em] mb-6 block">The Syndicate</span>
+                            <h2 class="font-display text-5xl md:text-6xl mb-6">FRACTIONAL<br>SUPREMACY.</h2>
+                            <p class="font-sans text-gray-400 font-light leading-relaxed mb-10">
+                                Stop chartering ad-hoc. Secure guaranteed availability, fixed hourly rates, and zero repositioning fees through the Stratos Syndicate membership.
+                            </p>
+                            <ul class="space-y-4 font-mono text-xs text-white">
+                                <li class="flex items-center gap-4"><i data-lucide="check" class="text-stratos-sky w-4 h-4"></i> 24-Hour Guaranteed Access</li>
+                                <li class="flex items-center gap-4"><i data-lucide="check" class="text-stratos-sky w-4 h-4"></i> Dedicated Concierge Desk</li>
+                                <li class="flex items-center gap-4"><i data-lucide="check" class="text-stratos-sky w-4 h-4"></i> Empty Leg Priority Alerts</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-stratos-void/80 border border-white/10 p-10 rounded-2xl text-center">
+                            <i data-lucide="award" class="w-12 h-12 text-stratos-sky mx-auto mb-6"></i>
+                            <h3 class="font-display text-3xl mb-2">BLACK CARD</h3>
+                            <p class="font-mono text-xs text-gray-500 uppercase tracking-widest mb-8">Initiation Tier</p>
+                            <div class="font-mono text-4xl text-white mb-8 font-bold">$250k <span class="text-sm text-gray-500 font-normal">/ Deposit</span></div>
+                            <button class="w-full bg-white text-black py-4 font-mono text-xs font-bold uppercase tracking-widest hover:bg-stratos-sky hover:text-white transition-colors rounded-lg hover-target">
+                                Apply for Board Review
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: CHARTER (FLIGHT PLAN) ================= -->
+        <section id="charter" class="py-40 px-6 relative z-10 border-t border-white/5 bg-stratos-void">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-20">
+                    <i data-lucide="map" class="w-10 h-10 text-stratos-sky mx-auto mb-6"></i>
+                    <h2 class="font-display text-5xl md:text-7xl mb-4 uppercase">File Flight Plan</h2>
+                    <p class="font-mono text-[10px] text-gray-500 uppercase tracking-[0.4em]">Secure Charter Routing System</p>
+                </div>
+
+                <div class="canopy-glass p-8 md:p-16 rounded-[2rem]">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-8">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 tracking-widest mb-3 block">Departure ICAO / City</label>
+                                <input type="text" class="flight-input hover-target" placeholder="e.g., KTEB (Teterboro)" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 tracking-widest mb-3 block">Arrival ICAO / City</label>
+                                <input type="text" class="flight-input hover-target" placeholder="e.g., LSGG (Geneva)" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 tracking-widest mb-3 block">Passenger Count</label>
+                                <input type="number" class="flight-input hover-target" placeholder="Max 19" required min="1" max="19">
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 tracking-widest mb-3 block">Secure Contact Email</label>
+                                <input type="email" class="flight-input hover-target" placeholder="principal@domain.com" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="font-mono text-[9px] uppercase text-gray-400 tracking-widest mb-3 block">Special Requirements / Security Detail</label>
+                            <textarea class="flight-input h-32 hover-target" placeholder="Catering preferences, ground transport, armed security..."></textarea>
+                        </div>
+
+                        <div class="pt-6">
+                            <button type="submit" class="w-full btn-stratos hover-target shadow-2xl">
+                                Transmit Request to Operations
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-shutter" class="fixed inset-0 z-[60000] hidden flex-col items-center justify-center p-6 bg-stratos-void/95 backdrop-blur-xl">
+        <div class="max-w-lg w-full text-center transform translate-y-10 opacity-0" id="success-content">
+            <div class="w-24 h-24 rounded-full border border-stratos-sky bg-stratos-sky/10 flex items-center justify-center mx-auto mb-8 text-stratos-sky shadow-[0_0_50px_rgba(14,165,233,0.2)]">
+                <i data-lucide="check" class="w-10 h-10"></i>
+            </div>
+            <h2 class="font-display font-black text-4xl text-white mb-4 uppercase">Flight Plan Logged.</h2>
+            <p class="font-sans text-gray-400 leading-relaxed mb-12 font-light">
+                Your routing request has been secured. Our flight operations desk is analyzing logistics and will contact you via your secure channel within 60 minutes.
+            </p>
+            <button onclick="closeSuccess()" class="font-mono text-[10px] text-white uppercase tracking-[0.3em] border-b border-white/30 pb-1 hover:border-stratos-sky hover:text-stratos-sky transition-colors hover-target">
+                Close Terminal
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-stratos-void py-16 px-8 border-t border-white/10 relative z-20">
+        <div class="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-3 opacity-50">
+                <i data-lucide="plane-takeoff" class="w-5 h-5 text-white"></i>
+                <span class="font-display font-bold text-xl tracking-widest text-white">STRATOS</span>
+            </div>
+            <div class="flex gap-8 font-mono text-[10px] uppercase tracking-widest text-gray-600 font-bold">
+                <a href="#" class="hover:text-white transition-colors hover-target">Terms of Charter</a>
+                <a href="#" class="hover:text-white transition-colors hover-target">Privacy Ledger</a>
+                <a href="#" class="hover:text-white transition-colors hover-target">Owner Portal</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- CUSTOM CURSOR ---
+        const cursor = document.querySelector('.cursor-reticle');
+        window.addEventListener('mousemove', (e) => {
+            // Slight delay for the crosshair
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power2.out" });
+        });
+        
+        document.querySelectorAll('.hover-target, button, input, select, textarea, a').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+        });
+
+        // --- ALTITUDE & COLOR ENGINE (THE ASCENT) ---
+        const altimeter = document.getElementById('altimeter');
+        const machMeter = document.getElementById('mach-meter');
+        const envBody = document.getElementById('env-body');
+        
+        // Ensure max scroll exists
+        const calcMaxScroll = () => document.body.scrollHeight - window.innerHeight;
+
+        ScrollTrigger.create({
+            trigger: "body",
+            start: "top top",
+            end: "bottom bottom",
+            scrub: 0.5,
+            onUpdate: (self) => {
+                const progress = self.progress; // 0 to 1
+                
+                // 1. Altimeter (0 to 45,000 FT)
+                const currentAlt = Math.floor(progress * 45000);
+                // Format with commas
+                altimeter.innerText = currentAlt.toLocaleString();
+
+                // 2. Mach Speed (0 to 0.92)
+                const currentMach = (progress * 0.92).toFixed(2);
+                machMeter.innerText = currentMach;
+
+                // 3. Background Color Shift (Sky Blue -> Deep Space Black)
+                // #0ea5e9 to #020617
+                const color = gsap.utils.interpolate('#0ea5e9', '#020617', progress);
+                envBody.style.backgroundColor = color;
+                
+                // Dim the hero cloud video as we go higher
+                const cloudVid = document.getElementById('cloud-vid');
+                if(cloudVid) {
+                    cloudVid.style.opacity = Math.max(0, 0.8 - (progress * 1.5));
+                }
+            }
+        });
+
+        // --- ENTRANCE ANIMATIONS ---
+        window.addEventListener('load', () => {
+            gsap.to('.reveal-up', { y: 0, opacity: 1, duration: 1.5, stagger: 0.15, ease: "power3.out", delay: 0.2 });
+        });
+
+        // Reveal Fleet Cards
+        gsap.utils.toArray('.canopy-glass').forEach(card => {
+            // Ignore if in membership or charter sections (handled separately if needed, or globally)
+            if(card.closest('#fleet') || card.closest('#membership')) {
+                gsap.from(card, {
+                    y: 100,
+                    opacity: 0,
+                    duration: 1,
+                    ease: "power3.out",
+                    scrollTrigger: {
+                        trigger: card,
+                        start: "top 85%"
+                    }
+                });
+            }
+        });
+
+        // --- SMOOTH SCROLL ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 2, scrollTo: { y: `#${id}`, offsetY: 80 }, ease: "power4.inOut" });
+        }
+
+        // --- FORM SUBMISSION MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-shutter');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.5 });
+            gsap.fromTo(content, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, delay: 0.2, ease: "power3.out" });
+        }
+        
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-shutter');
+            const content = document.getElementById('success-content');
+            gsap.to(content, { y: 20, opacity: 0, duration: 0.4 });
+            gsap.to(modal, { opacity: 0, duration: 0.5, delay: 0.2, onComplete: () => {
+                modal.style.display = 'none';
+                window.scrollTo(0,0);
+            }});
+        }
+
+    </script>
+</body>
+</html>

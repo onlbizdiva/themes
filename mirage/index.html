@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | MIRAGE PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400;1,600&family=Outfit:wght@300;400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'mirage-void': '#0A0908',
+                        'mirage-sand': '#E6D5B8',
+                        'mirage-dune': '#C6A68E',
+                        'mirage-sun': '#E05C36',
+                        'mirage-oasis': '#295C7A',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0A0908;
+            color: #E6D5B8;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0A0908; }
+        ::-webkit-scrollbar-thumb { background: #C6A68E; border-radius: 10px; }
+
+        /* SANDSTORM OVERLAY */
+        .sandstorm {
+            position: fixed; inset: -200%; pointer-events: none; z-index: 50;
+            opacity: 0.05; mix-blend-mode: color-dodge;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+            animation: drift 40s linear infinite;
+        }
+        @keyframes drift {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(10%, 10%); }
+        }
+
+        /* HEAT HAZE FILTERS */
+        .heat-haze {
+            filter: url('#heat-displacement');
+            transform: scale(1.05); /* Prevents edge clipping during distortion */
+            transition: filter 0.8s ease, transform 0.8s ease;
+        }
+        
+        .mirage-card {
+            overflow: hidden;
+            position: relative;
+            border-radius: 4px;
+        }
+        
+        /* The card hovers "cool" the image down to reality */
+        .mirage-card:hover .heat-haze {
+            filter: url('#heat-displacement-zero');
+            transform: scale(1);
+        }
+
+        /* CUSTOM CURSOR (THE SUN) */
+        .cursor-sun {
+            position: fixed; top: 0; left: 0;
+            width: 24px; height: 24px;
+            background: #E05C36;
+            border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 40px 10px rgba(224, 92, 54, 0.4);
+            transition: width 0.3s, height 0.3s, background-color 0.3s;
+            mix-blend-mode: screen;
+        }
+
+        /* BUTTONS */
+        .btn-mirage {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem 3rem;
+            background: transparent;
+            color: #E6D5B8;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            border: 1px solid #C6A68E;
+            border-radius: 500px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-mirage::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #E6D5B8;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: -1;
+            border-radius: 500px;
+        }
+        .btn-mirage:hover {
+            color: #0A0908;
+            border-color: #E6D5B8;
+        }
+        .btn-mirage:hover::before {
+            transform: translateY(0);
+        }
+
+        /* INPUTS */
+        .oasis-input {
+            width: 100%;
+            background: rgba(41, 92, 122, 0.05);
+            border: 1px solid rgba(41, 92, 122, 0.2);
+            padding: 1.25rem;
+            color: #E6D5B8;
+            font-family: 'Outfit', sans-serif;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .oasis-input:focus {
+            outline: none;
+            border-color: #295C7A;
+            background: rgba(41, 92, 122, 0.1);
+        }
+        .oasis-input::placeholder { color: rgba(230, 213, 184, 0.3); }
+
+        /* VIEW TRANSITIONS */
+        .view-sector {
+            display: none; opacity: 0; min-height: 100vh;
+        }
+        .view-sector.active { display: block; opacity: 1; }
+
+        /* SHUTTER FX */
+        #heat-shutter {
+            position: fixed; inset: 0; background: #E05C36; z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            transform: scaleY(0); transform-origin: bottom;
+        }
+    </style>
+</head>
+<body class="selection:bg-mirage-sun selection:text-mirage-void">
+
+    <!-- SVG DEFINITIONS FOR HEAT HAZE -->
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;">
+        <defs>
+            <!-- Active Heat Haze -->
+            <filter id="heat-displacement" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.01 0.05" numOctaves="2" result="noise" id="turb-wave" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" id="disp-map" />
+            </filter>
+            <!-- Zero Distortion for Hover States -->
+            <filter id="heat-displacement-zero" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.01 0.05" numOctaves="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div class="sandstorm"></div>
+    <div class="cursor-sun hidden md:block"></div>
+    <div id="heat-shutter">
+        <h2 class="font-serif italic text-6xl text-mirage-void">Traversing...</h2>
+    </div>
+
+    <!-- HUD NAVIGATION -->
+    <nav class="fixed top-0 w-full p-8 z-50 flex justify-between items-start mix-blend-difference pointer-events-none">
+        
+        <div class="pointer-events-auto cursor-pointer group" onclick="switchSector('home')">
+            <span class="font-serif italic text-4xl text-mirage-sand tracking-widest">Mirage.</span>
+            <div class="h-px w-0 bg-mirage-sun group-hover:w-full transition-all duration-500 mt-1"></div>
+        </div>
+        
+        <div class="pointer-events-auto flex flex-col items-end gap-6 font-mono text-[10px] uppercase tracking-[0.3em] text-mirage-dune">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-1.5 h-1.5 bg-mirage-sun rounded-full animate-pulse"></div>
+                <span id="coord-hud">LAT: 00.00 / LNG: 00.00</span>
+            </div>
+            <div class="flex gap-10">
+                <button onclick="switchSector('manifesto')" class="hover:text-mirage-sand transition-colors hover-target">The Vision</button>
+                <button onclick="switchSector('library')" class="hover:text-mirage-sand transition-colors hover-target">The Artifacts</button>
+            </div>
+            <button onclick="switchSector('contact')" class="mt-2 bg-mirage-sand text-mirage-void px-6 py-2 rounded-full hover:bg-mirage-sun hover:text-white transition-colors hover-target font-bold">
+                ENTER THE OASIS
+            </button>
+        </div>
+    </nav>
+
+    <!-- VIEW ROUTER -->
+    <div id="view-container">
+
+        <!-- ================= SECTOR: HOME (THE DUNES) ================= -->
+        <main id="view-home" class="view-sector active">
+            
+            <!-- HERO -->
+            <section class="h-screen relative flex items-center justify-center overflow-hidden">
+                <!-- Distorted Background Image -->
+                <div class="absolute inset-0 z-0">
+                    <img src="https://images.unsplash.com/photo-1509316785289-025f5b846b35?q=80&w=2076&auto=format&fit=crop" class="w-full h-full object-cover heat-haze opacity-60" alt="Desert Dunes">
+                    <div class="absolute inset-0 bg-gradient-to-t from-mirage-void via-transparent to-mirage-void opacity-90"></div>
+                </div>
+
+                <div class="relative z-10 text-center px-6">
+                    <h1 class="font-serif italic text-7xl md:text-[12vw] leading-[0.85] text-mirage-sand mb-6 reveal-init opacity-0">
+                        Digital<br>Hallucination.
+                    </h1>
+                    <p class="font-sans text-lg md:text-xl font-light text-mirage-dune max-w-xl mx-auto leading-relaxed reveal-init opacity-0" style="transition-delay: 0.2s;">
+                        We build high-ticket brand architectures that blur the line between reality and desire. An oasis of conversion in a desert of noise.
+                    </p>
+
+                    <div class="mt-16 reveal-init opacity-0" style="transition-delay: 0.4s;">
+                        <button class="btn-mirage hover-target" onclick="scrollToSection('gallery')">
+                            Explore Artifacts
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Scroll Line -->
+                <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+                    <div class="w-px h-16 bg-gradient-to-b from-mirage-sun to-transparent"></div>
+                    <span class="font-mono text-[9px] uppercase tracking-widest text-mirage-dune">Descend</span>
+                </div>
+            </section>
+
+            <!-- THE ARTIFACTS (GALLERY) -->
+            <section id="gallery" class="py-40 px-6 max-w-7xl mx-auto relative z-10">
+                <div class="flex justify-between items-end mb-24 border-b border-white/5 pb-8">
+                    <h2 class="font-serif italic text-6xl">Artifacts.</h2>
+                    <span class="font-mono text-xs text-mirage-dune uppercase tracking-[0.2em]">Curated Illusions</span>
+                </div>
+
+                <div class="space-y-40">
+                    
+                    <!-- Project 1 -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-16 items-center">
+                        <div class="md:col-span-7">
+                            <div class="mirage-card aspect-[4/3] bg-mirage-void group cursor-pointer hover-target" onclick="triggerShowcase('VOLTAGE')">
+                                <img src="https://images.pexels.com/photos/2227774/pexels-photo-2227774.jpeg?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover heat-haze opacity-70 group-hover:opacity-100" alt="Abstract Architecture">
+                                <div class="absolute inset-0 bg-mirage-void/20 group-hover:bg-transparent transition-colors"></div>
+                                <!-- Reveal Text -->
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                    <span class="bg-mirage-void text-mirage-sand font-mono text-xs px-4 py-2 uppercase tracking-widest border border-mirage-dune">View Spec</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="md:col-span-5 space-y-6">
+                            <span class="font-mono text-[10px] text-mirage-sun border border-mirage-sun/30 px-3 py-1 rounded-full uppercase">Kinetic Identity</span>
+                            <h3 class="font-serif italic text-5xl">Voltage</h3>
+                            <p class="font-sans text-mirage-dune font-light leading-relaxed">High-energy brutalism cooled down into a hyper-premium aesthetic. Built for velocity and unignorable impact.</p>
+                        </div>
+                    </div>
+
+                    <!-- Project 2 -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-16 items-center">
+                        <div class="md:col-span-5 order-2 md:order-1 space-y-6 md:text-right">
+                            <span class="font-mono text-[10px] text-mirage-sun border border-mirage-sun/30 px-3 py-1 rounded-full uppercase inline-block">Fluid Systems</span>
+                            <h3 class="font-serif italic text-5xl">Mercury</h3>
+                            <p class="font-sans text-mirage-dune font-light leading-relaxed">A study in shapelessness. Interfaces that morph and adapt using real-time SVG liquid distortion logic.</p>
+                        </div>
+                        <div class="md:col-span-7 order-1 md:order-2">
+                            <div class="mirage-card aspect-video bg-mirage-void group cursor-pointer hover-target" onclick="triggerShowcase('MERCURY')">
+                                <img src="https://images.pexels.com/photos/6346022/pexels-photo-6346022.jpeg?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover heat-haze opacity-70 group-hover:opacity-100" alt="Fluid Abstract">
+                                <div class="absolute inset-0 bg-mirage-void/20 group-hover:bg-transparent transition-colors"></div>
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                    <span class="bg-mirage-void text-mirage-sand font-mono text-xs px-4 py-2 uppercase tracking-widest border border-mirage-dune">View Spec</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+        </main>
+
+        <!-- ================= SECTOR: MANIFESTO ================= -->
+        <main id="view-manifesto" class="view-sector pt-40 pb-40 px-6">
+            <div class="max-w-4xl mx-auto">
+                <span class="font-mono text-xs text-mirage-sun uppercase tracking-[0.5em] mb-8 block">// Core Philosophy</span>
+                <h1 class="font-serif italic text-7xl md:text-9xl mb-24 text-mirage-sand">SHIFTING<br>SANDS.</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-20">
+                    <p class="font-serif text-3xl italic leading-tight text-mirage-dune">
+                        "The digital landscape is a vast, empty desert. Most brands are just dry bones in the sand. We build the <strong class="text-mirage-sun not-italic">Oasis.</strong>"
+                    </p>
+                    <div class="space-y-12 font-sans text-gray-400 font-light leading-relaxed">
+                        <p>Standard web development is rigid and clinical. But human desire is organic and fluid. We utilize advanced GSAP and WebGL aesthetics to create environments that feel warm, tangible, and deeply magnetic.</p>
+                        <p>We don't build pages to be read. We build hallucinations to be experienced. When your infrastructure looks this surreal, price resistance evaporates.</p>
+                    </div>
+                </div>
+
+                <div class="mt-32 pt-12 border-t border-white/5 flex gap-12 opacity-60">
+                    <div class="font-mono text-xs uppercase tracking-widest">
+                        <span class="block text-mirage-sun mb-2">Phase 01</span>
+                        Sensory Overhaul
+                    </div>
+                    <div class="font-mono text-xs uppercase tracking-widest">
+                        <span class="block text-mirage-sun mb-2">Phase 02</span>
+                        Logical Conversion
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SECTOR: THE VAULT (LIBRARY) ================= -->
+        <main id="view-library" class="view-sector pt-40 pb-40 px-6">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex justify-between items-end mb-24 border-b border-white/5 pb-12">
+                    <h1 class="font-serif italic text-7xl text-mirage-sand">THE VAULT</h1>
+                    <span class="font-mono text-[10px] text-mirage-dune uppercase tracking-widest">Secure_Assets_V54</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    
+                    <div class="border border-white/5 bg-white/[0.02] p-12 rounded-2xl group hover:border-mirage-sun hover:bg-white/[0.05] transition-all cursor-pointer hover-target">
+                        <i data-lucide="flame" class="w-8 h-8 text-mirage-sun mb-8 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="font-serif italic text-4xl mb-4 text-mirage-sand">Mirage Shaders</h3>
+                        <p class="font-sans text-gray-400 font-light mb-10 leading-relaxed">Raw SVG filter codes to generate continuous heat-haze and displacement maps across standard HTML elements.</p>
+                        <button class="font-mono text-[10px] uppercase text-mirage-sun border-b border-mirage-sun pb-1">Extract Data</button>
+                    </div>
+
+                    <div class="border border-white/5 bg-white/[0.02] p-12 rounded-2xl group hover:border-mirage-oasis hover:bg-white/[0.05] transition-all cursor-pointer hover-target">
+                        <i data-lucide="droplets" class="w-8 h-8 text-mirage-oasis mb-8 group-hover:scale-110 transition-transform"></i>
+                        <h3 class="font-serif italic text-4xl mb-4 text-mirage-sand">Fluid Dynamics</h3>
+                        <p class="font-sans text-gray-400 font-light mb-10 leading-relaxed">GSAP templates for inertial scrolling, liquid border-radius morphing, and elastic user interactions.</p>
+                        <button class="font-mono text-[10px] uppercase text-mirage-oasis border-b border-mirage-oasis pb-1">Extract Data</button>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SECTOR: CONTACT (THE OASIS) ================= -->
+        <!-- Contrast section using cool Oasis colors -->
+        <main id="view-contact" class="view-sector pt-40 pb-40 px-6 bg-mirage-void relative overflow-hidden">
+            <!-- Oasis Glow -->
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-mirage-oasis/20 blur-[150px] pointer-events-none rounded-t-full"></div>
+
+            <div class="max-w-3xl mx-auto relative z-10">
+                <div class="text-center mb-20">
+                    <i data-lucide="tent-tree" class="w-12 h-12 text-mirage-oasis mx-auto mb-6"></i>
+                    <h1 class="font-serif italic text-6xl md:text-8xl text-mirage-sand mb-4">THE OASIS.</h1>
+                    <p class="font-mono text-[10px] text-mirage-oasis uppercase tracking-[0.4em]">Establish Connection</p>
+                </div>
+
+                <div class="bg-[#05111a] border border-mirage-oasis/30 p-10 md:p-16 rounded-3xl shadow-[0_0_50px_rgba(41,92,122,0.2)]">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-mirage-oasis mb-2 block tracking-widest">Traveler Name</label>
+                                <input type="text" class="oasis-input hover-target" placeholder="Enter Identity" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-mirage-oasis mb-2 block tracking-widest">Comms Signal</label>
+                                <input type="email" class="oasis-input hover-target" placeholder="secure@email.com" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-mono text-[9px] uppercase text-mirage-oasis mb-2 block tracking-widest">Desired Destination</label>
+                            <select class="oasis-input hover-target cursor-pointer appearance-none">
+                                <option>Complete Architectural Mirage ($15k+)</option>
+                                <option>Aesthetic Reconstruction ($8k+)</option>
+                                <option>Strategic Consultation</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="font-mono text-[9px] uppercase text-mirage-oasis mb-2 block tracking-widest">Expedition Details</label>
+                            <textarea class="oasis-input h-32 hover-target" placeholder="Describe the vision..."></textarea>
+                        </div>
+                        <div class="pt-6">
+                            <button type="submit" class="w-full py-6 bg-mirage-oasis text-mirage-sand font-serif italic text-2xl hover:bg-mirage-sand hover:text-mirage-void transition-all duration-500 rounded-xl hover-target">
+                                Transmit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SECTOR: SHOWCASE DETAIL ================= -->
+        <main id="view-showcase" class="view-sector pt-40 pb-40 px-6">
+            <div class="max-w-7xl mx-auto">
+                <button onclick="switchSector('home')" class="font-mono text-[10px] text-gray-500 hover:text-mirage-sun mb-16 flex items-center gap-2 transition-colors hover-target">
+                    <i data-lucide="arrow-left" class="w-3 h-3"></i> ABANDON ILLUSION
+                </button>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-20 items-start">
+                    <div class="lg:col-span-8">
+                        <!-- Heat haze applied to showcase image too -->
+                        <div class="aspect-video bg-mirage-void rounded-lg overflow-hidden relative shadow-2xl heat-haze" id="showcase-media-container">
+                            <img id="showcase-img" src="" class="w-full h-full object-cover opacity-80" alt="Project Spec">
+                        </div>
+                    </div>
+                    <div class="lg:col-span-4 space-y-12">
+                        <h2 id="showcase-title" class="font-serif italic text-6xl md:text-8xl text-mirage-sand leading-none">PROJECT</h2>
+                        <p id="showcase-desc" class="font-sans text-lg text-mirage-dune font-light leading-relaxed">System description populated here.</p>
+                        
+                        <div class="space-y-6 border-t border-white/10 pt-10 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+                            <div class="flex justify-between">
+                                <span>Aesthetic</span>
+                                <span id="showcase-arch" class="text-mirage-sun">Custom</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Engine</span>
+                                <span id="showcase-proto" class="text-white">v54.0</span>
+                            </div>
+                        </div>
+                        
+                        <button class="w-full py-5 border border-mirage-sand text-mirage-sand font-serif italic text-2xl hover:bg-mirage-sand hover:text-mirage-void transition-all rounded-full hover-target">
+                            Enter Simulation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- NOTIFICATION SYSTEM -->
+    <div id="notif-box" class="fixed bottom-10 right-10 z-[60000] bg-mirage-oasis text-mirage-sand p-6 rounded-2xl shadow-[0_10px_40px_rgba(41,92,122,0.4)] hidden transform translate-y-10 opacity-0 border border-mirage-sand/20">
+        <div class="flex items-center gap-6">
+            <div class="w-12 h-12 bg-mirage-sand text-mirage-void rounded-full flex items-center justify-center">
+                <i data-lucide="send"></i>
+            </div>
+            <div>
+                <h4 class="font-serif italic text-2xl mb-1">Signal Received</h4>
+                <p class="font-mono text-[9px] uppercase tracking-widest opacity-80">The Oasis Awaits.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER HUD -->
+    <footer class="fixed bottom-0 w-full p-8 z-50 flex justify-between items-end mix-blend-difference pointer-events-none text-white">
+        <div class="flex flex-col gap-2">
+            <span class="font-mono text-[9px] uppercase tracking-widest text-mirage-sun">Atmospheric_Load</span>
+            <div class="w-32 h-px bg-white/20 relative">
+                <div id="progress-bar" class="h-full bg-mirage-sun w-0"></div>
+            </div>
+        </div>
+        <div class="text-right font-mono text-[9px] text-gray-500 uppercase tracking-widest">
+            © 2026 // THE MIRAGE PROTOCOL
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- CUSTOM CURSOR ---
+        const cursor = document.querySelector('.cursor-sun');
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1 });
+        });
+
+        // Hover States
+        document.querySelectorAll('.hover-target, button, input, select, textarea').forEach(el => {
+            el.addEventListener('mouseenter', () => gsap.to(cursor, { scale: 3, backgroundColor: 'rgba(224, 92, 54, 0.2)', mixBlendMode: 'normal', duration: 0.3 }));
+            el.addEventListener('mouseleave', () => gsap.to(cursor, { scale: 1, backgroundColor: '#E05C36', mixBlendMode: 'screen', duration: 0.3 }));
+        });
+
+        // --- HUD COORDINATES ---
+        const coordHud = document.getElementById('coord-hud');
+        window.addEventListener('mousemove', (e) => {
+            // Fake longitude/latitude mapping based on mouse position
+            const lat = ((e.clientY / window.innerHeight) * 180 - 90).toFixed(2);
+            const lng = ((e.clientX / window.innerWidth) * 360 - 180).toFixed(2);
+            coordHud.innerText = `LAT: ${lat}° / LNG: ${lng}°`;
+        });
+
+        // --- HEAT HAZE SCROLL AMPLIFICATION ---
+        const turbWave = document.getElementById('turb-wave');
+        const dispMap = document.getElementById('disp-map');
+        
+        // Continuous organic heat ripple
+        let time = 0;
+        gsap.ticker.add(() => {
+            time += 0.05;
+            // Base ripple
+            const freqY = 0.05 + Math.sin(time) * 0.01;
+            turbWave.setAttribute('baseFrequency', `0.01 ${freqY}`);
+        });
+
+        // Amplify distortion based on scroll velocity
+        ScrollTrigger.create({
+            trigger: "body",
+            start: "top top",
+            end: "bottom bottom",
+            onUpdate: (self) => {
+                const velocity = Math.abs(self.getVelocity() / 100);
+                // Clamp scale between base 15 and max 60
+                const currentScale = Math.min(15 + velocity * 2, 60);
+                dispMap.setAttribute('scale', currentScale);
+            },
+            onScrubComplete: () => {
+                // Return to base scale smoothly when scrolling stops
+                gsap.to(dispMap, { attr: { scale: 15 }, duration: 0.5, ease: "power2.out" });
+            }
+        });
+
+        // --- SECTOR ROUTING ---
+        let currentSector = 'home';
+        window.switchSector = function(id) {
+            if(id === currentSector && id !== 'showcase') return;
+
+            const shutter = document.getElementById('heat-shutter');
+            // Sweep right
+            gsap.fromTo(shutter, { scaleY: 1, scaleX: 0, transformOrigin: "left" }, { scaleX: 1, duration: 0.6, ease: "power4.inOut", onComplete: () => {
+                
+                document.querySelectorAll('.view-sector').forEach(v => v.classList.remove('active'));
+                document.getElementById(`view-${id}`).classList.add('active');
+                window.scrollTo(0,0);
+                
+                // Sweep continue right to reveal
+                gsap.to(shutter, { scaleX: 0, transformOrigin: "right", duration: 0.6, delay: 0.2, ease: "power4.inOut", onComplete: () => {
+                    currentSector = id;
+                    ScrollTrigger.refresh();
+                }});
+            }});
+        }
+
+        // --- PROJECT DATA ---
+        const projectData = {
+            'VOLTAGE': {
+                title: 'Voltage',
+                img: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop',
+                desc: 'A case study in high-vis kinetic energy. We deconstructed traditional sales frameworks and rebuilt them with brutalist logic.',
+                arch: 'Brutalist_Kinetic', proto: 'V.4.2'
+            },
+            'MERCURY': {
+                title: 'Mercury',
+                img: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000&auto=format&fit=crop',
+                desc: 'Utilizing fluid aesthetics to create an adaptive digital identity. Interfaces that morph and bend using live distortion mapping.',
+                arch: 'Fluid_Metal', proto: 'V.2.1'
+            }
+        };
+
+        window.triggerShowcase = function(id) {
+            const data = projectData[id];
+            const imgEl = document.getElementById('showcase-img');
+            
+            document.getElementById('showcase-title').innerText = data.title;
+            document.getElementById('showcase-desc').innerText = data.desc;
+            document.getElementById('showcase-arch').innerText = data.arch;
+            document.getElementById('showcase-proto').innerText = data.proto;
+            
+            imgEl.src = data.img;
+            
+            switchSector('showcase');
+        }
+
+        // --- CONTACT FEEDBACK ---
+        window.triggerSuccess = function() {
+            const box = document.getElementById('notif-box');
+            box.style.display = 'flex';
+            gsap.fromTo(box, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "back.out(1.5)" });
+            setTimeout(() => {
+                gsap.to(box, { y: 50, opacity: 0, duration: 0.5, onComplete: () => box.style.display = 'none' });
+            }, 4000);
+        }
+
+        // --- REVEAL ANIMATIONS ---
+        window.addEventListener('load', () => {
+            gsap.to('.reveal-init', { opacity: 1, y: 0, stagger: 0.2, duration: 1.5, ease: "power4.out", delay: 0.5 });
+        });
+
+        // Progress Bar
+        gsap.to('#progress-bar', {
+            width: '100%',
+            ease: 'none',
+            scrollTrigger: {
+                trigger: 'body',
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.3
+            }
+        });
+
+        // --- SMOOTH SCROLL ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.5, scrollTo: `#${id}`, ease: "power3.inOut" });
+        }
+
+    </script>
+</body>
+</html>

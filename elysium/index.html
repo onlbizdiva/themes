@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | ELYSIUM PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@200;300;400;600;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        serif: ['Cormorant Garamond', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        'clinic-white': '#FAFAFA',
+                        'lab-gray': '#F3F4F6',
+                        'obsidian': '#030712',
+                        'bio-emerald': '#064E3B',
+                        'vital-green': '#10B981',
+                        'plasma': '#34D399',
+                    },
+                    backgroundImage: {
+                        'medical-grid': "linear-gradient(to right, rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.03) 1px, transparent 1px)",
+                        'medical-grid-dark': "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #FAFAFA;
+            color: #030712;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #FAFAFA; }
+        ::-webkit-scrollbar-thumb { background: #064E3B; border-radius: 10px; }
+
+        /* EKG CANVAS */
+        #vital-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.15;
+            transition: opacity 0.5s;
+        }
+        .dark-mode #vital-canvas {
+            opacity: 0.3;
+        }
+
+        /* CUSTOM CURSOR */
+        .cursor-cell {
+            position: fixed; top: 0; left: 0;
+            width: 32px; height: 32px;
+            border: 1px solid rgba(6, 78, 59, 0.4);
+            border-radius: 50%;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s, background-color 0.3s, border-color 0.3s;
+            backdrop-filter: blur(2px);
+        }
+        .cursor-cell::after {
+            content: ''; position: absolute; top: 50%; left: 50%;
+            width: 4px; height: 4px; background: #10B981;
+            border-radius: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px #10B981;
+        }
+        .cursor-cell.active {
+            width: 60px; height: 60px;
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: #10B981;
+        }
+        .dark-mode .cursor-cell {
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        /* FROSTED CLINIC PANELS */
+        .clinic-glass {
+            background: rgba(250, 250, 250, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.02);
+        }
+        .dark-mode .clinic-glass {
+            background: rgba(3, 7, 18, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            color: #FAFAFA;
+        }
+
+        /* SVG RINGS FOR DATA */
+        .vital-ring {
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        .vital-circle-bg {
+            fill: none;
+            stroke: rgba(0,0,0,0.05);
+            stroke-width: 4;
+        }
+        .dark-mode .vital-circle-bg { stroke: rgba(255,255,255,0.05); }
+        
+        .vital-circle-fill {
+            fill: none;
+            stroke: #10B981;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 283; /* 2 * pi * r (45) */
+            stroke-dashoffset: 283; /* Starts empty */
+            filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));
+            transition: stroke-dashoffset 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* INPUTS */
+        .bio-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+            padding: 1rem 0;
+            font-family: 'Outfit', sans-serif;
+            color: inherit;
+            transition: border-color 0.3s;
+        }
+        .dark-mode .bio-input { border-bottom-color: rgba(255,255,255,0.2); }
+        .bio-input:focus { outline: none; border-bottom-color: #10B981; }
+        
+        /* IMAGE MASKS & ANIMATIONS */
+        .cell-mask {
+            border-radius: 200px 200px 20px 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .image-breathing {
+            transition: transform 1.5s cubic-bezier(0.16, 1, 0.3, 1), filter 1s ease;
+        }
+        .group:hover .image-breathing {
+            transform: scale(1.05);
+        }
+
+        /* THEME TRANSITION */
+        .theme-section {
+            transition: background-color 0.8s ease, color 0.8s ease;
+        }
+    </style>
+</head>
+<body class="selection:bg-vital-green selection:text-white" id="main-body">
+
+    <!-- CURSOR & BACKGROUND -->
+    <div class="cursor-cell hidden md:block"></div>
+    <canvas id="vital-canvas"></canvas>
+    
+    <!-- MEDICAL GRID OVERLAY -->
+    <div class="fixed inset-0 bg-medical-grid bg-[length:40px_40px] pointer-events-none z-0 transition-opacity duration-800" id="grid-light"></div>
+    <div class="fixed inset-0 bg-medical-grid-dark bg-[length:40px_40px] pointer-events-none z-0 opacity-0 transition-opacity duration-800" id="grid-dark"></div>
+
+    <!-- CLINICAL NAVIGATION -->
+    <nav class="fixed top-0 w-full z-50 p-6 flex justify-between items-center transition-colors duration-500" id="nav-bar">
+        <div class="flex items-center gap-3 cursor-pointer group hover-target" onclick="scrollToSection('hero')">
+            <div class="w-8 h-8 rounded-full border border-current flex items-center justify-center group-hover:bg-vital-green group-hover:border-vital-green group-hover:text-white transition-all">
+                <i data-lucide="dna" class="w-4 h-4"></i>
+            </div>
+            <span class="font-sans font-bold tracking-widest uppercase text-sm">ELYSIUM</span>
+        </div>
+        
+        <div class="hidden md:flex items-center gap-10 font-mono text-[10px] uppercase tracking-widest font-semibold">
+            <button onclick="scrollToSection('science')" class="hover:text-vital-green transition-colors hover-target">The Science</button>
+            <button onclick="scrollToSection('data')" class="hover:text-vital-green transition-colors hover-target">Clinical Data</button>
+            <button onclick="scrollToSection('intake')" class="hover:text-vital-green transition-colors hover-target">Diagnostics</button>
+        </div>
+
+        <button onclick="scrollToSection('intake')" class="bg-obsidian text-white px-6 py-2.5 rounded-full font-sans text-xs uppercase font-bold tracking-widest hover:bg-vital-green transition-colors hover-target" id="nav-btn">
+            Apply for Beta
+        </button>
+    </nav>
+
+    <main class="relative z-10">
+
+        <!-- ================= SECTION 1: HERO (THE LAB) ================= -->
+        <section id="hero" class="min-h-screen flex items-center justify-center px-6 pt-20 relative theme-section">
+            
+            <div class="max-w-[1400px] w-full grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+                
+                <!-- Left: Clinical Copy -->
+                <div class="lg:col-span-6 z-10">
+                    <div class="inline-flex items-center gap-2 border border-current px-3 py-1 rounded-full mb-8 opacity-0 reveal-init">
+                        <div class="w-1.5 h-1.5 bg-vital-green rounded-full animate-pulse"></div>
+                        <span class="font-mono text-[9px] uppercase tracking-widest">Protocol Version 4.8.0</span>
+                    </div>
+                    
+                    <h1 class="font-sans font-bold text-6xl md:text-[7vw] leading-[0.85] tracking-tight mb-8 opacity-0 reveal-init delay-100">
+                        BIOLOGICAL<br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-bio-emerald to-plasma">SUPREMACY.</span>
+                    </h1>
+                    
+                    <p class="font-serif italic text-2xl md:text-3xl text-gray-500 mb-10 max-w-lg opacity-0 reveal-init delay-200">
+                        The definitive cognitive and physical optimization architecture for elite performers. 
+                    </p>
+
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6 opacity-0 reveal-init delay-300">
+                        <button class="bg-obsidian text-white px-8 py-4 rounded-full font-sans text-sm font-bold uppercase tracking-widest hover:bg-vital-green transition-all hover-target" onclick="scrollToSection('intake')">
+                            Request Diagnostic Kit
+                        </button>
+                        <span class="font-mono text-[10px] text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i> HIPAA Compliant
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Right: Macro Organic Visual -->
+                <div class="lg:col-span-6 relative opacity-0 reveal-init delay-400 flex justify-center lg:justify-end">
+                    <div class="absolute -inset-4 bg-vital-green/10 blur-3xl rounded-full z-0"></div>
+                    <div class="w-full max-w-[500px] aspect-[4/5] cell-mask bg-lab-gray relative z-10 shadow-2xl hover-target group">
+                        <!-- High-end clean abstract fluid image replacing broken video -->
+                        <img src="https://images.pexels.com/photos/17485658/pexels-photo-17485658.png?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover scale-110 image-breathing grayscale-[20%]" alt="Biological Fluid Optimization">
+                        
+                        <!-- Clinical overlay elements -->
+                        <div class="absolute top-6 left-6 font-mono text-[10px] bg-white/80 backdrop-blur-sm px-2 py-1 rounded text-obsidian">
+                            SEQ_01 // CELLULAR_REGEN
+                        </div>
+                        <div class="absolute bottom-6 right-6 flex gap-1">
+                            <div class="w-1 h-4 bg-obsidian/50"></div>
+                            <div class="w-1 h-6 bg-obsidian/50"></div>
+                            <div class="w-1 h-3 bg-obsidian/50"></div>
+                            <div class="w-1 h-8 bg-vital-green"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: THE SCIENCE (DARK MODE TRIGGER) ================= -->
+        <section id="science" class="py-32 px-6 theme-section dark-trigger relative">
+            <div class="max-w-6xl mx-auto">
+                
+                <div class="text-center mb-24">
+                    <h2 class="font-sans font-bold text-5xl md:text-7xl mb-6">THE METHODOLOGY</h2>
+                    <p class="font-serif italic text-2xl text-gray-400 max-w-2xl mx-auto">
+                        We do not guess. We synthesize millions of data points to create a bespoke biological operating system tailored exclusively to your DNA.
+                    </p>
+                </div>
+
+                <!-- Step Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    
+                    <!-- Step 1 -->
+                    <div class="clinic-glass p-10 rounded-2xl group hover-target hover:border-vital-green transition-colors">
+                        <div class="w-12 h-12 rounded-full border border-current flex items-center justify-center text-vital-green mb-8 group-hover:scale-110 transition-transform">
+                            <i data-lucide="microscope" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="font-sans font-bold text-2xl mb-4">01. Diagnostics</h3>
+                        <p class="font-sans text-sm font-light leading-relaxed opacity-70">
+                            Comprehensive blood panel, genetic sequencing, and metabolic stress testing to map your baseline architecture.
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="clinic-glass p-10 rounded-2xl group hover-target hover:border-vital-green transition-colors md:translate-y-12">
+                        <div class="w-12 h-12 rounded-full border border-current flex items-center justify-center text-plasma mb-8 group-hover:scale-110 transition-transform">
+                            <i data-lucide="cpu" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="font-sans font-bold text-2xl mb-4">02. Synthesis</h3>
+                        <p class="font-sans text-sm font-light leading-relaxed opacity-70">
+                            Our proprietary AI algorithm constructs a precise, compounding supplement and behavioral protocol.
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="clinic-glass p-10 rounded-2xl group hover-target hover:border-vital-green transition-colors md:translate-y-24">
+                        <div class="w-12 h-12 rounded-full border border-current flex items-center justify-center text-bio-emerald mb-8 group-hover:scale-110 transition-transform">
+                            <i data-lucide="activity" class="w-5 h-5"></i>
+                        </div>
+                        <h3 class="font-sans font-bold text-2xl mb-4">03. Optimization</h3>
+                        <p class="font-sans text-sm font-light leading-relaxed opacity-70">
+                            Continuous weekly telemetry monitoring. We adjust your inputs in real-time as your biology evolves.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: CLINICAL DATA (TELEMETRY RINGS) ================= -->
+        <section id="data" class="py-40 px-6 theme-section dark-trigger relative overflow-hidden">
+            <!-- Background abstraction -->
+            <div class="absolute top-0 right-0 w-[800px] h-[800px] bg-bio-emerald/10 blur-[150px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+                
+                <div class="lg:col-span-5 space-y-8">
+                    <span class="font-mono text-[10px] uppercase tracking-[0.3em] text-plasma">Verified Outcomes</span>
+                    <h2 class="font-sans font-bold text-5xl md:text-7xl leading-tight">CLINICAL<br>EFFICACY.</h2>
+                    <p class="font-serif italic text-xl text-gray-400 leading-relaxed">
+                        Based on our latest double-blind cohort of 400 executive performers over a 6-month protocol period.
+                    </p>
+                </div>
+
+                <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-8">
+                    
+                    <!-- Data Ring 1 -->
+                    <div class="clinic-glass p-8 rounded-2xl flex flex-col items-center justify-center text-center hover-target">
+                        <div class="relative w-32 h-32 mb-6">
+                            <svg class="vital-ring w-full h-full" viewBox="0 0 100 100">
+                                <circle class="vital-circle-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="vital-circle-fill data-ring" cx="50" cy="50" r="45" data-percent="84"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center font-sans font-bold text-3xl">
+                                <span class="counter" data-target="84">0</span>%
+                            </div>
+                        </div>
+                        <h4 class="font-mono text-[10px] uppercase tracking-widest text-gray-400">Increase in<br>Deep Sleep</h4>
+                    </div>
+
+                    <!-- Data Ring 2 -->
+                    <div class="clinic-glass p-8 rounded-2xl flex flex-col items-center justify-center text-center hover-target">
+                        <div class="relative w-32 h-32 mb-6">
+                            <svg class="vital-ring w-full h-full" viewBox="0 0 100 100">
+                                <circle class="vital-circle-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="vital-circle-fill data-ring" cx="50" cy="50" r="45" data-percent="62" style="stroke: #34D399;"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center font-sans font-bold text-3xl">
+                                <span class="counter" data-target="62">0</span>%
+                            </div>
+                        </div>
+                        <h4 class="font-mono text-[10px] uppercase tracking-widest text-gray-400">Boost in<br>VO2 Max</h4>
+                    </div>
+
+                    <!-- Data Ring 3 -->
+                    <div class="clinic-glass p-8 rounded-2xl flex flex-col items-center justify-center text-center hover-target">
+                        <div class="relative w-32 h-32 mb-6">
+                            <svg class="vital-ring w-full h-full" viewBox="0 0 100 100">
+                                <circle class="vital-circle-bg" cx="50" cy="50" r="45"></circle>
+                                <circle class="vital-circle-fill data-ring" cx="50" cy="50" r="45" data-percent="142" style="stroke: #064E3B;"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center font-sans font-bold text-3xl">
+                                <span class="counter" data-target="142">0</span>%
+                            </div>
+                        </div>
+                        <h4 class="font-mono text-[10px] uppercase tracking-widest text-gray-400">Neural<br>Plasticity Index</h4>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: INTAKE (CONVERSION) - LIGHT MODE ================= -->
+        <section id="intake" class="py-32 px-6 theme-section light-trigger relative bg-clinic-white z-20 border-t border-gray-200">
+            <div class="max-w-4xl mx-auto">
+                
+                <div class="text-center mb-16">
+                    <i data-lucide="clipboard-signature" class="w-12 h-12 text-vital-green mx-auto mb-6"></i>
+                    <h2 class="font-sans font-bold text-5xl md:text-7xl mb-4 text-obsidian">DIAGNOSTIC INTAKE</h2>
+                    <p class="font-mono text-xs uppercase tracking-widest text-gray-500">Secure Medical Application // Beta Cohort</p>
+                </div>
+
+                <div class="bg-white p-10 md:p-16 rounded-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.04)] border border-gray-100">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-12">
+                        
+                        <!-- Pseudo Medical Form Fields -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 mb-2 block">Legal Name</label>
+                                <input type="text" class="bio-input hover-target" placeholder="John Doe" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 mb-2 block">Secure Email</label>
+                                <input type="email" class="bio-input hover-target" placeholder="john@company.com" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 mb-2 block">Current Age</label>
+                                <input type="number" class="bio-input hover-target" placeholder="35" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase text-gray-400 mb-2 block">Primary Optimization Goal</label>
+                                <select class="bio-input cursor-pointer hover-target text-obsidian bg-transparent">
+                                    <option>Cognitive Endurance & Focus</option>
+                                    <option>Physical Longevity & VO2</option>
+                                    <option>Sleep Architecture & Recovery</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="font-mono text-[9px] uppercase text-gray-400 mb-2 block">Current Baseline Assessment</label>
+                            <textarea class="bio-input h-32 hover-target" placeholder="Describe current fatigue levels, diet, and training regimen..."></textarea>
+                        </div>
+
+                        <div class="pt-8">
+                            <button type="submit" class="w-full bg-vital-green text-white py-6 rounded-full font-sans text-sm font-bold uppercase tracking-widest hover:bg-bio-emerald hover:shadow-xl transition-all duration-300 hover-target flex justify-center items-center gap-3">
+                                <i data-lucide="lock" class="w-4 h-4"></i> Submit Encrypted Dossier ($10k/yr)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-modal" class="fixed inset-0 z-[60000] hidden flex-col items-center justify-center p-6 bg-clinic-white/95 backdrop-blur-md">
+        <div class="max-w-md w-full text-center transform translate-y-10 opacity-0" id="success-content">
+            <div class="w-20 h-20 bg-vital-green/10 text-vital-green rounded-full flex items-center justify-center mx-auto mb-8 border border-vital-green/30">
+                <i data-lucide="check" class="w-8 h-8"></i>
+            </div>
+            <h2 class="font-sans font-bold text-4xl text-obsidian mb-4">Intake Received.</h2>
+            <p class="font-serif italic text-xl text-gray-500 leading-relaxed mb-10">
+                Your diagnostic parameters have been securely logged. A clinical director will contact you within 24 hours to schedule your blood panel.
+            </p>
+            <button onclick="closeSuccess()" class="bg-obsidian text-white px-10 py-4 rounded-full font-sans text-xs uppercase font-bold tracking-widest hover:bg-vital-green transition-colors hover-target w-full">
+                Close Secure Session
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-clinic-white py-16 px-6 border-t border-gray-200 theme-section light-trigger relative z-20">
+        <div class="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="flex items-center gap-2">
+                <i data-lucide="dna" class="w-5 h-5 text-vital-green"></i>
+                <span class="font-sans font-bold text-xl tracking-widest text-obsidian">ELYSIUM</span>
+            </div>
+            <div class="flex gap-8 font-mono text-[10px] uppercase tracking-widest text-gray-500 font-semibold">
+                <a href="#" class="hover:text-vital-green transition-colors hover-target">Research</a>
+                <a href="#" class="hover:text-vital-green transition-colors hover-target">Privacy Protocol</a>
+                <a href="#" class="hover:text-vital-green transition-colors hover-target">Terms</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- CUSTOM CURSOR ---
+        const cursor = document.querySelector('.cursor-cell');
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.15, ease: "power2.out" });
+        });
+        
+        document.querySelectorAll('.hover-target, button, input, select, a').forEach(el => {
+            el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+        });
+
+        // --- EKG VITAL CANVAS ENGINE ---
+        const canvas = document.getElementById('vital-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let time = 0;
+        let baseFrequency = 0.02;
+        let amplitude = 40;
+
+        function initCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
+
+        function drawEKG() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Adjust line color based on dark mode class on body
+            const isDark = document.body.classList.contains('dark-mode');
+            ctx.strokeStyle = isDark ? 'rgba(16, 185, 129, 0.4)' : 'rgba(6, 78, 59, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+
+            // Get scroll velocity to increase heartbeat intensity
+            const st = ScrollTrigger.getAll()[0];
+            const velocity = st ? Math.abs(st.getVelocity()) / 100 : 0;
+            const currentAmp = amplitude + (velocity * 2);
+            const freqMod = 1 + (velocity * 0.05);
+
+            for (let x = 0; x < width; x += 5) {
+                // Math logic for a heartbeat-like pulse
+                const normalizedX = (x + time * 100) * baseFrequency * freqMod;
+                let y = height / 2;
+                
+                // Create the spike (QRS complex approximation) every modulo
+                if (normalizedX % (Math.PI * 4) > Math.PI * 3.8) {
+                    y -= Math.sin(normalizedX * 10) * currentAmp * 2;
+                } else {
+                    // Slight baseline wander
+                    y += Math.sin(normalizedX) * 5;
+                }
+                
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            time += 0.02;
+            requestAnimationFrame(drawEKG);
+        }
+        drawEKG();
+
+        // --- THEME FLIPPER (LIGHT -> DARK -> LIGHT) ---
+        const body = document.getElementById('main-body');
+        const nav = document.getElementById('nav-bar');
+        const navBtn = document.getElementById('nav-btn');
+        const gridLight = document.getElementById('grid-light');
+        const gridDark = document.getElementById('grid-dark');
+
+        function setDarkMode(isDark) {
+            if (isDark) {
+                body.classList.add('dark-mode');
+                body.style.backgroundColor = '#030712'; // obsidian
+                body.style.color = '#FAFAFA';
+                nav.style.color = '#FAFAFA';
+                navBtn.style.backgroundColor = '#FAFAFA';
+                navBtn.style.color = '#030712';
+                gridLight.style.opacity = 0;
+                gridDark.style.opacity = 0.2;
+            } else {
+                body.classList.remove('dark-mode');
+                body.style.backgroundColor = '#FAFAFA';
+                body.style.color = '#030712';
+                nav.style.color = '#030712';
+                navBtn.style.backgroundColor = '#030712';
+                navBtn.style.color = '#FAFAFA';
+                gridLight.style.opacity = 1;
+                gridDark.style.opacity = 0;
+            }
+        }
+
+        // Trigger Dark Mode when hitting Science/Data
+        ScrollTrigger.create({
+            trigger: ".dark-trigger",
+            start: "top 50%",
+            endTrigger: "#data",
+            end: "bottom 50%",
+            onEnter: () => setDarkMode(true),
+            onLeaveBack: () => setDarkMode(false),
+        });
+
+        // Trigger Light Mode when hitting Intake
+        ScrollTrigger.create({
+            trigger: ".light-trigger",
+            start: "top 50%",
+            onEnter: () => setDarkMode(false),
+            onLeaveBack: () => setDarkMode(true),
+        });
+
+        // --- ENTRANCE ANIMATIONS ---
+        window.addEventListener('load', () => {
+            gsap.to('.reveal-init', { y: 0, opacity: 1, duration: 1.2, ease: "power3.out", stagger: 0.15 });
+        });
+
+        // --- DATA RING ANIMATIONS ---
+        const dataSection = document.getElementById('data');
+        if (dataSection) {
+            ScrollTrigger.create({
+                trigger: dataSection,
+                start: "top 70%",
+                onEnter: () => {
+                    // Animate SVG Rings
+                    const rings = document.querySelectorAll('.data-ring');
+                    rings.forEach(ring => {
+                        const target = parseInt(ring.getAttribute('data-percent'));
+                        // Circumference is 283. Dashoffset goes from 283 to (283 - (283 * target/100))
+                        // BUT for values over 100 (like 142), we just cap visual circle at 100% and let numbers spin
+                        const visualTarget = Math.min(target, 100);
+                        const offset = 283 - (283 * (visualTarget / 100));
+                        ring.style.strokeDashoffset = offset;
+                    });
+
+                    // Animate Counters
+                    const counters = document.querySelectorAll('.counter');
+                    counters.forEach(counter => {
+                        const target = parseInt(counter.getAttribute('data-target'));
+                        gsap.to(counter, {
+                            innerHTML: target,
+                            duration: 2,
+                            snap: { innerHTML: 1 },
+                            ease: "power2.out"
+                        });
+                    });
+                },
+                once: true // Only run once
+            });
+        }
+
+        // --- SMOOTH SCROLL NAV ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.5, scrollTo: { y: `#${id}`, offsetY: 80 }, ease: "power4.inOut" });
+        }
+
+        // --- SUCCESS MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.4 });
+            gsap.fromTo(content, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, delay: 0.1, ease: "power3.out" });
+        }
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            gsap.to(content, { y: 10, opacity: 0, duration: 0.3 });
+            gsap.to(modal, { opacity: 0, duration: 0.4, delay: 0.1, onComplete: () => {
+                modal.style.display = 'none';
+                window.scrollTo(0,0);
+            }});
+        }
+
+    </script>
+</body>
+</html>

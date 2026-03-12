@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | FORGE PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Oswald', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'forge-void': '#09090b',
+                        'forge-black': '#18181b',
+                        'forge-steel': '#27272a',
+                        'forge-yellow': '#FACC15',
+                        'forge-white': '#f4f4f5',
+                    },
+                    backgroundImage: {
+                        'hazard-stripes': "repeating-linear-gradient(45deg, #FACC15, #FACC15 20px, #09090b 20px, #09090b 40px)",
+                        'blueprint-grid': "linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)",
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #09090b;
+            color: #f4f4f5;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* INDUSTRIAL CURSOR */
+        .cursor-mech {
+            position: fixed; top: 0; left: 0;
+            width: 30px; height: 30px;
+            border: 2px solid #FACC15;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.2s, height 0.2s, border-radius 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cursor-mech::before {
+            content: ''; width: 4px; height: 4px; background: #FACC15;
+        }
+        .cursor-mech.active {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: rgba(250, 204, 21, 0.1);
+        }
+
+        /* HARDWARE BUTTON */
+        .btn-hardware {
+            display: inline-block;
+            background: #FACC15;
+            color: #09090b;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            text-transform: uppercase;
+            padding: 1rem 3rem;
+            border: 4px solid #FACC15;
+            position: relative;
+            z-index: 1;
+            transition: all 0.2s ease;
+            box-shadow: 6px 6px 0px #27272a;
+        }
+        .btn-hardware:active {
+            transform: translate(4px, 4px);
+            box-shadow: 2px 2px 0px #27272a;
+        }
+        .btn-hardware:hover {
+            background: #09090b;
+            color: #FACC15;
+        }
+
+        /* IGNITION OVERLAY */
+        #ignition-screen {
+            position: fixed; inset: 0;
+            background: #09090b;
+            z-index: 10000;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .ignition-btn {
+            width: 150px; height: 150px;
+            border-radius: 50%;
+            background: #27272a;
+            border: 8px solid #18181b;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .ignition-btn:active {
+            transform: scale(0.95);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.9), 0 5px 15px rgba(0,0,0,0.5);
+            background: #FACC15;
+        }
+
+        /* TEXTURE MASKING */
+        .industrial-image {
+            filter: grayscale(100%) contrast(1.2);
+            mix-blend-mode: luminosity;
+            transition: filter 0.5s ease, mix-blend-mode 0.5s ease;
+        }
+        .industrial-panel:hover .industrial-image {
+            filter: grayscale(0%) contrast(1.1);
+            mix-blend-mode: normal;
+        }
+        .yellow-tint {
+            position: absolute; inset: 0;
+            background: #FACC15;
+            mix-blend-mode: multiply;
+            opacity: 0.3;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+        .industrial-panel:hover .yellow-tint { opacity: 0; }
+
+        /* ASSEMBLY LINE HORIZONTAL SCROLL */
+        .assembly-wrapper {
+            width: 400vw; /* 4 panels */
+            height: 100vh;
+            display: flex;
+            flex-wrap: nowrap;
+            will-change: transform;
+        }
+        .assembly-panel {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            flex-shrink: 0;
+            border-right: 4px solid #27272a;
+            position: relative;
+        }
+
+        /* ROTATING SCHEMATICS */
+        .schematic-gear {
+            position: absolute;
+            border: 1px dashed rgba(250, 204, 21, 0.2);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            animation: spin 30s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* MARQUEE TAPE */
+        .hazard-tape {
+            background: #FACC15;
+            color: #09090b;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            display: flex;
+            border-top: 4px solid #09090b;
+            border-bottom: 4px solid #09090b;
+        }
+        .tape-content {
+            display: flex;
+            animation: tape-scroll 15s linear infinite;
+        }
+        @keyframes tape-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* TERMINAL INPUT */
+        .forge-input {
+            width: 100%;
+            background: #18181b;
+            border: 2px solid #27272a;
+            padding: 1.5rem;
+            color: #FACC15;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .forge-input:focus {
+            outline: none;
+            border-color: #FACC15;
+            background: #09090b;
+            box-shadow: inset 0 0 15px rgba(250, 204, 21, 0.1);
+        }
+        .forge-input::placeholder { color: #52525b; }
+    </style>
+</head>
+<body class="bg-forge-void selection:bg-forge-yellow selection:text-forge-void">
+
+    <!-- IGNITION SYSTEM (LOADING) -->
+    <div id="ignition-screen">
+        <div class="absolute inset-0 bg-blueprint-grid bg-[length:40px_40px] opacity-10"></div>
+        <div class="z-10 text-center flex flex-col items-center">
+            <i data-lucide="triangle-alert" class="w-12 h-12 text-forge-yellow mb-6"></i>
+            <h2 class="font-display text-4xl mb-2 uppercase">Safety Override</h2>
+            <p class="font-mono text-xs text-gray-500 uppercase tracking-widest mb-12">Press and hold to engage main power</p>
+            
+            <div class="ignition-btn" id="ignite-button">
+                <span class="font-display text-2xl font-bold text-gray-500 select-none" id="ignite-text">INIT</span>
+            </div>
+
+            <div class="w-64 h-2 bg-forge-steel mt-12 rounded-full overflow-hidden border border-forge-black">
+                <div id="ignition-progress" class="h-full bg-forge-yellow w-0"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GLOBAL ELEMENTS -->
+    <div class="cursor-mech hidden md:flex"></div>
+    <div class="fixed inset-0 bg-blueprint-grid bg-[length:40px_40px] opacity-5 pointer-events-none z-0"></div>
+
+    <!-- HUD NAVIGATION -->
+    <nav class="fixed top-0 w-full z-50 mix-blend-difference pointer-events-none p-6 md:p-10 flex justify-between items-start">
+        <div class="pointer-events-auto flex flex-col group cursor-pointer" onclick="scrollToSection('hero')">
+            <span class="font-display text-4xl md:text-5xl font-bold tracking-tight text-white uppercase">FORGE</span>
+            <div class="flex items-center gap-2 mt-1">
+                <div class="w-2 h-2 bg-forge-yellow"></div>
+                <span class="font-mono text-[10px] text-forge-yellow uppercase tracking-widest">Heavy_Industry_v49</span>
+            </div>
+        </div>
+        
+        <div class="pointer-events-auto hidden md:flex flex-col items-end gap-6 font-mono text-xs font-bold uppercase tracking-widest text-gray-400">
+            <button onclick="scrollToSection('assembly')" class="hover:text-forge-yellow transition-colors hover-target flex items-center gap-2">
+                01_Methodology <div class="w-4 h-4 border border-current"></div>
+            </button>
+            <button onclick="scrollToSection('schematics')" class="hover:text-forge-yellow transition-colors hover-target flex items-center gap-2">
+                02_Schematics <div class="w-4 h-4 border border-current"></div>
+            </button>
+            <button onclick="scrollToSection('terminal')" class="hover:text-forge-yellow transition-colors hover-target flex items-center gap-2">
+                03_Terminal <div class="w-4 h-4 border border-current"></div>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="relative z-10 hidden" id="main-content">
+
+        <!-- ================= SECTION 1: HERO ================= -->
+        <section id="hero" class="min-h-screen relative flex items-center justify-center px-6 border-b-8 border-forge-steel overflow-hidden">
+            
+            <!-- Rotating Schematics -->
+            <div class="schematic-gear w-[800px] h-[800px] -right-[200px] -top-[200px]"></div>
+            <div class="schematic-gear w-[600px] h-[600px] -left-[100px] -bottom-[100px]" style="animation-direction: reverse; animation-duration: 40s;"></div>
+
+            <div class="relative z-10 w-full max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center md:items-end gap-12">
+                
+                <div class="w-full md:w-2/3">
+                    <h1 class="font-display text-[15vw] md:text-[12vw] leading-[0.85] font-bold text-white uppercase mb-6 drop-shadow-2xl">
+                        ENGINEERED<br>
+                        <span class="text-forge-yellow">IMPACT.</span>
+                    </h1>
+                    <div class="bg-forge-yellow text-forge-void px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest inline-flex items-center gap-4">
+                        <i data-lucide="cpu" class="w-4 h-4"></i>
+                        Building Digital Infrastructure
+                    </div>
+                </div>
+
+                <div class="w-full md:w-1/3 flex flex-col items-start md:items-end text-left md:text-right border-l-4 border-forge-steel pl-6 md:pl-0 md:border-l-0 md:border-r-4 md:pr-6">
+                    <p class="font-sans text-lg text-gray-400 mb-8 font-medium">
+                        We don't design web pages. We manufacture heavy-duty conversion machines for enterprise and elite B2B sectors.
+                    </p>
+                    <button class="btn-hardware hover-target" onclick="scrollToSection('assembly')">
+                        Ignite Process
+                    </button>
+                </div>
+                
+            </div>
+            
+            <!-- Scroll prompt -->
+            <div class="absolute bottom-0 left-0 w-32 h-32 border-t-4 border-r-4 border-forge-steel flex items-center justify-center bg-forge-black">
+                <i data-lucide="arrow-down" class="w-10 h-10 text-forge-yellow animate-bounce"></i>
+            </div>
+        </section>
+
+        <!-- HAZARD TAPE -->
+        <div class="hazard-tape py-3 text-lg z-20 relative">
+            <div class="tape-content">
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> HEAVY DIGITAL MACHINERY IN OPERATION</span>
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> HIGH CONVERSION VOLTAGE</span>
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> UNAUTHORIZED ACCESS PROHIBITED</span>
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> HEAVY DIGITAL MACHINERY IN OPERATION</span>
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> HIGH CONVERSION VOLTAGE</span>
+                <span class="mx-8 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-5 h-5"></i> UNAUTHORIZED ACCESS PROHIBITED</span>
+            </div>
+        </div>
+
+        <!-- ================= SECTION 2: ASSEMBLY LINE (HORIZONTAL) ================= -->
+        <section id="assembly" class="bg-forge-black overflow-hidden relative">
+            <div class="assembly-wrapper" id="assembly-track">
+                
+                <!-- Panel 1: Concept -->
+                <div class="assembly-panel">
+                    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                        <div class="space-y-8">
+                            <span class="font-mono text-5xl font-bold text-forge-steel">01</span>
+                            <h2 class="font-display text-6xl md:text-8xl text-white uppercase">The Blueprint</h2>
+                            <p class="font-sans text-xl text-gray-400">
+                                Before pouring concrete, we draft the architecture. We analyze your market, define the structural logic of your brand, and create a wireframe built purely for conversion weight.
+                            </p>
+                        </div>
+                        <div class="industrial-panel relative aspect-square bg-forge-void border-4 border-forge-steel p-4 overflow-hidden group">
+                            <div class="absolute inset-4 border border-forge-yellow/30 z-20 pointer-events-none"></div>
+                            <img src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover industrial-image" alt="Architectural Blueprint">
+                            <div class="yellow-tint"></div>
+                            <div class="absolute bottom-8 left-8 z-30 font-mono text-xs bg-forge-void px-2 py-1 text-forge-yellow border border-forge-yellow">SYS_RENDER_01</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Design -->
+                <div class="assembly-panel">
+                    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                        <div class="industrial-panel relative aspect-[4/3] bg-forge-void border-4 border-forge-steel p-4 overflow-hidden group order-2 lg:order-1">
+                            <img src="https://images.unsplash.com/photo-1581092335397-9583eb92d232?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover industrial-image" alt="Heavy Machinery">
+                            <div class="yellow-tint"></div>
+                            <div class="absolute top-8 right-8 z-30 font-mono text-xs bg-forge-void px-2 py-1 text-forge-yellow border border-forge-yellow">SYS_RENDER_02</div>
+                        </div>
+                        <div class="space-y-8 order-1 lg:order-2">
+                            <span class="font-mono text-5xl font-bold text-forge-steel">02</span>
+                            <h2 class="font-display text-6xl md:text-8xl text-white uppercase">The Casting</h2>
+                            <p class="font-sans text-xl text-gray-400">
+                                We forge the visual identity using brutalist typography, high-contrast palettes, and solid-state UI components. Aesthetics that command authority, not ask for it.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Development -->
+                <div class="assembly-panel">
+                    <div class="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                        <div class="space-y-8">
+                            <span class="font-mono text-5xl font-bold text-forge-steel">03</span>
+                            <h2 class="font-display text-6xl md:text-8xl text-white uppercase">The Motor</h2>
+                            <p class="font-sans text-xl text-gray-400">
+                                Engineering the interactions. We utilize GSAP and WebGL to create heavy, inertial animations that make the digital space feel like physical hardware.
+                            </p>
+                        </div>
+                        <div class="industrial-panel relative aspect-square bg-forge-void border-4 border-forge-steel p-4 overflow-hidden group">
+                            <img src="https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover industrial-image" alt="Engine block">
+                            <div class="yellow-tint"></div>
+                            <div class="absolute bottom-8 left-8 z-30 font-mono text-xs bg-forge-void px-2 py-1 text-forge-yellow border border-forge-yellow">SYS_RENDER_03</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 4: Deploy -->
+                <div class="assembly-panel bg-forge-yellow text-forge-void border-none">
+                    <div class="max-w-4xl w-full text-center space-y-12">
+                        <i data-lucide="rocket" class="w-32 h-32 mx-auto stroke-[1.5]"></i>
+                        <h2 class="font-display text-7xl md:text-[10vw] uppercase leading-none font-bold text-forge-void">
+                            DEPLOY<br>SYSTEM
+                        </h2>
+                        <button class="bg-forge-void text-forge-yellow px-12 py-5 font-display text-3xl uppercase font-bold shadow-[8px_8px_0px_#fff] hover:translate-y-2 hover:translate-x-2 hover:shadow-none transition-all hover-target" onclick="scrollToSection('terminal')">
+                            ENTER COMMAND TERMINAL
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: SCHEMATICS (FEATURES) ================= -->
+        <section id="schematics" class="py-32 px-6 bg-forge-void border-y-8 border-forge-steel relative z-10">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-end mb-24 border-b-4 border-forge-steel pb-8">
+                    <div>
+                        <span class="font-mono text-forge-yellow text-sm font-bold uppercase tracking-widest mb-4 block">Hardware Specs</span>
+                        <h2 class="font-display text-6xl md:text-8xl text-white uppercase">SCHEMATICS</h2>
+                    </div>
+                    <div class="font-mono text-xs text-gray-500 text-right mt-8 md:mt-0">
+                        DOC_ID: 994-A<br>
+                        CLEARANCE: LEVEL 5
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Spec 1 -->
+                    <div class="bg-forge-black border-2 border-forge-steel p-8 hover:border-forge-yellow transition-colors hover-target group">
+                        <div class="w-16 h-16 bg-forge-steel flex items-center justify-center mb-8 border border-forge-void">
+                            <i data-lucide="shield-check" class="w-8 h-8 text-forge-yellow group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="font-display text-3xl uppercase text-white mb-4">Armor Plated Security</h3>
+                        <p class="font-mono text-sm text-gray-400">Static site architecture deployed on global edge networks. Impossible to hack. Zero database vulnerabilities.</p>
+                    </div>
+                    
+                    <!-- Spec 2 -->
+                    <div class="bg-forge-black border-2 border-forge-steel p-8 hover:border-forge-yellow transition-colors hover-target group">
+                        <div class="w-16 h-16 bg-forge-steel flex items-center justify-center mb-8 border border-forge-void">
+                            <i data-lucide="zap" class="w-8 h-8 text-forge-yellow group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="font-display text-3xl uppercase text-white mb-4">High Voltage Speed</h3>
+                        <p class="font-mono text-sm text-gray-400">Sub 0.5-second load times globally. Engineered code without bloat, plugins, or heavy CMS rendering.</p>
+                    </div>
+
+                    <!-- Spec 3 -->
+                    <div class="bg-forge-black border-2 border-forge-steel p-8 hover:border-forge-yellow transition-colors hover-target group">
+                        <div class="w-16 h-16 bg-forge-steel flex items-center justify-center mb-8 border border-forge-void">
+                            <i data-lucide="git-merge" class="w-8 h-8 text-forge-yellow group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h3 class="font-display text-3xl uppercase text-white mb-4">Logic Gate Automation</h3>
+                        <p class="font-mono text-sm text-gray-400">Direct API wiring to your CRM, fulfillment, and payment processors. We build the engine that runs itself.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: THE TERMINAL (CONTACT) ================= -->
+        <section id="terminal" class="py-32 px-6 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-forge-black relative">
+            
+            <div class="max-w-5xl mx-auto border-4 border-forge-steel bg-forge-void shadow-[0_0_50px_rgba(0,0,0,0.8)] relative">
+                
+                <!-- Terminal Header -->
+                <div class="bg-forge-steel border-b-4 border-forge-black p-4 flex justify-between items-center">
+                    <div class="flex gap-2">
+                        <div class="w-4 h-4 bg-red-500 border border-black"></div>
+                        <div class="w-4 h-4 bg-forge-yellow border border-black"></div>
+                    </div>
+                    <span class="font-mono text-xs font-bold text-white uppercase tracking-widest">COMMAND_TERMINAL_01</span>
+                    <i data-lucide="terminal" class="w-5 h-5 text-gray-400"></i>
+                </div>
+
+                <div class="p-8 md:p-16">
+                    <div class="mb-12">
+                        <h2 class="font-display text-5xl md:text-7xl text-white uppercase mb-2">INITIALIZE BUILD</h2>
+                        <p class="font-mono text-forge-yellow text-sm">> AWAITING OPERATOR INPUT...</p>
+                    </div>
+
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-2">
+                                <label class="font-mono text-xs font-bold text-gray-400 uppercase">IDENTIFICATION_STRING</label>
+                                <input type="text" class="forge-input hover-target" placeholder="COMPANY / NAME" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-mono text-xs font-bold text-gray-400 uppercase">ROUTING_ADDRESS</label>
+                                <input type="email" class="forge-input hover-target" placeholder="EMAIL_COORDINATES" required>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="font-mono text-xs font-bold text-gray-400 uppercase">INFRASTRUCTURE_REQUIREMENT</label>
+                            <select class="forge-input cursor-pointer hover-target appearance-none">
+                                <option>HEAVY ENTERPRISE BUILD ($25K+)</option>
+                                <option>AESTHETIC OVERHAUL ($10K+)</option>
+                                <option>AUTOMATION CONSULTING ($5K+)</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="font-mono text-xs font-bold text-gray-400 uppercase">MISSION_PARAMETERS</label>
+                            <textarea class="forge-input h-40 hover-target" placeholder="DEFINE OBJECTIVES..."></textarea>
+                        </div>
+
+                        <div class="pt-8">
+                            <button type="submit" class="w-full bg-forge-yellow text-forge-void font-display text-4xl uppercase font-bold py-6 hover:bg-white transition-colors border-4 border-forge-yellow hover:border-white shadow-[0_0_30px_rgba(250,204,21,0.2)] hover-target">
+                                TRANSMIT SECURE PAYLOAD
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="bg-forge-void py-12 px-6 border-t-4 border-forge-steel text-center md:text-left">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="font-display text-3xl font-bold text-white uppercase tracking-widest">
+                    OBD <span class="text-forge-yellow">FORGE</span>
+                </div>
+                <div class="flex gap-8 font-mono text-xs font-bold text-gray-500 uppercase tracking-widest">
+                    <a href="#" class="hover:text-forge-yellow transition-colors hover-target">SYSTEM LOGS</a>
+                    <a href="#" class="hover:text-forge-yellow transition-colors hover-target">PRIVACY PROTOCOL</a>
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- SUCCESS MODAL (SYSTEM ALERT) -->
+    <div id="success-alert" class="fixed inset-0 bg-forge-void/90 backdrop-blur-sm z-[60000] hidden flex-col items-center justify-center p-6">
+        <div class="border-4 border-forge-yellow bg-forge-black p-12 max-w-2xl w-full text-center transform scale-95 opacity-0 shadow-[0_0_100px_rgba(250,204,21,0.2)]" id="success-content">
+            <i data-lucide="check-square" class="w-24 h-24 text-forge-yellow mx-auto mb-8"></i>
+            <h2 class="font-display text-6xl uppercase text-white mb-4">PAYLOAD RECEIVED</h2>
+            <p class="font-mono text-gray-400 mb-12">
+                System parameters logged successfully. Engineering team will decrypt and respond within 24 standard hours.
+            </p>
+            <button onclick="closeSuccess()" class="btn-hardware w-full hover-target">
+                ACKNOWLEDGE & CLOSE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- IGNITION SEQUENCE (LOADING) ---
+        const igniteBtn = document.getElementById('ignite-button');
+        const igniteText = document.getElementById('ignite-text');
+        const progress = document.getElementById('ignition-progress');
+        let pressTimer;
+        let isIgnited = false;
+
+        igniteBtn.addEventListener('mousedown', startIgnition);
+        igniteBtn.addEventListener('touchstart', startIgnition);
+        igniteBtn.addEventListener('mouseup', cancelIgnition);
+        igniteBtn.addEventListener('mouseleave', cancelIgnition);
+        igniteBtn.addEventListener('touchend', cancelIgnition);
+
+        function startIgnition(e) {
+            if(isIgnited) return;
+            e.preventDefault();
+            igniteText.innerText = "HOLD";
+            igniteText.style.color = "#09090b";
+            
+            gsap.to(progress, { width: '100%', duration: 1.5, ease: "power1.in", onComplete: triggerBoot });
+        }
+
+        function cancelIgnition() {
+            if(isIgnited) return;
+            igniteText.innerText = "INIT";
+            igniteText.style.color = "#71717a";
+            gsap.killTweensOf(progress);
+            gsap.to(progress, { width: '0%', duration: 0.3 });
+        }
+
+        function triggerBoot() {
+            isIgnited = true;
+            igniteText.innerText = "LIVE";
+            
+            // Screen shake & fade out
+            const tl = gsap.timeline();
+            tl.to('#ignition-screen', { x: -10, y: 10, duration: 0.05, yoyo: true, repeat: 5 })
+              .to('#ignition-screen', { yPercent: -100, duration: 1, ease: "power4.inOut" }, "+=0.2")
+              .add(() => {
+                  document.getElementById('main-content').classList.remove('hidden');
+                  document.getElementById('ignition-screen').style.display = 'none';
+                  initMainAnimations();
+              });
+        }
+
+        // --- MAIN APP LOGIC ---
+        function initMainAnimations() {
+            // Re-calc scroll triggers after revealing main content
+            ScrollTrigger.refresh();
+
+            // Custom Cursor
+            const cursor = document.querySelector('.cursor-mech');
+            window.addEventListener('mousemove', (e) => {
+                gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power2.out" });
+            });
+            
+            document.querySelectorAll('.hover-target, button, a, input, select, textarea').forEach(el => {
+                el.addEventListener('mouseenter', () => cursor.classList.add('active'));
+                el.addEventListener('mouseleave', () => cursor.classList.remove('active'));
+            });
+
+            // Horizontal Scroll Assembly Line
+            if (window.innerWidth > 1024) {
+                const track = document.getElementById('assembly-track');
+                const panels = gsap.utils.toArray('.assembly-panel');
+                
+                gsap.to(panels, {
+                    xPercent: -100 * (panels.length - 1),
+                    ease: "none",
+                    scrollTrigger: {
+                        trigger: "#assembly",
+                        pin: true,
+                        scrub: 1,
+                        snap: 1 / (panels.length - 1),
+                        end: () => "+=" + track.offsetWidth
+                    }
+                });
+            }
+        }
+
+        // --- NAVIGATION ---
+        window.scrollToSection = (id) => {
+            // Basic scroll, using ScrollToPlugin
+            const el = document.getElementById(id);
+            if(el) {
+                gsap.to(window, { duration: 1.5, scrollTo: {y: el, offsetY: 50}, ease: "power4.inOut" });
+            }
+        }
+
+        // --- SUCCESS MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-alert');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            gsap.to(content, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.5)" });
+        }
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-alert');
+            const content = document.getElementById('success-content');
+            gsap.to(content, { scale: 0.95, opacity: 0, duration: 0.3, onComplete: () => {
+                modal.style.display = 'none';
+            }});
+        }
+
+    </script>
+</body>
+</html>

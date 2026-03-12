@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | MONETA PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,400&family=Space+Grotesk:wght@300;500;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
+                    },
+                    colors: {
+                        'term-void': '#020202',
+                        'term-surface': '#0a0a0a',
+                        'term-panel': '#111111',
+                        'alpha-green': '#00FF41',
+                        'hf-orange': '#FF6600',
+                        'stop-red': '#FF003C',
+                        'paper': '#F3F4F6',
+                    },
+                    backgroundImage: {
+                        'data-grid': "linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)",
+                    },
+                    animation: {
+                        'marquee': 'marquee 25s linear infinite',
+                    },
+                    keyframes: {
+                        marquee: {
+                            '0%': { transform: 'translateX(0%)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #020202;
+            color: #F3F4F6;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #00FF41 #020202;
+        }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020202; border-left: 1px solid #111; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        ::-webkit-scrollbar-thumb:hover { background: #00FF41; }
+
+        /* LIVE CHART CANVAS */
+        #alpha-chart {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.15;
+            pointer-events: none;
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+
+        /* CUSTOM CURSOR - CROSSHAIR */
+        .cursor-quant {
+            position: fixed; top: 0; left: 0;
+            width: 30px; height: 30px;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%);
+            mix-blend-mode: difference;
+        }
+        .cursor-quant::before, .cursor-quant::after {
+            content: ''; position: absolute; background: #00FF41;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+        }
+        .cursor-quant::before { width: 100%; height: 1px; }
+        .cursor-quant::after { width: 1px; height: 100%; }
+
+        /* FLASH ANIMATIONS (Simulating live data updates) */
+        .flash-update {
+            animation: flashGreen 4s infinite;
+        }
+        .flash-update-alt {
+            animation: flashGreen 7s infinite 2s;
+        }
+        @keyframes flashGreen {
+            0%, 95%, 100% { background-color: transparent; color: inherit; }
+            96%, 98% { background-color: rgba(0, 255, 65, 0.2); color: #00FF41; }
+        }
+
+        /* DATA BLOCKS */
+        .data-block {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            transition: border-color 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .data-block:hover {
+            border-color: #333;
+        }
+        .data-block::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 2px; height: 100%;
+            background: #00FF41; transform: scaleY(0); transform-origin: bottom;
+            transition: transform 0.3s;
+        }
+        .data-block:hover::after { transform: scaleY(1); }
+
+        /* TEXT SCRAMBLE REVEAL */
+        .scramble-text {
+            visibility: hidden; /* Hidden until GSAP kicks in */
+        }
+
+        /* BUTTONS */
+        .btn-moneta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.2rem 3rem;
+            background: #111;
+            color: #F3F4F6;
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: 1px solid #333;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .btn-moneta:hover {
+            background: #00FF41;
+            color: #020202;
+            border-color: #00FF41;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        /* INPUTS */
+        .quant-input {
+            width: 100%;
+            background: #050505;
+            border: 1px solid #222;
+            padding: 1.25rem;
+            color: #F3F4F6;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+        .quant-input:focus {
+            outline: none;
+            border-color: #00FF41;
+            background: #0a0a0a;
+            box-shadow: inset 2px 0 0 #00FF41;
+        }
+        .quant-input::placeholder { color: #555; }
+    </style>
+</head>
+<body class="selection:bg-alpha-green selection:text-term-void cursor-none">
+
+    <!-- GLOBAL FX -->
+    <div class="fixed inset-0 bg-data-grid bg-[length:40px_40px] pointer-events-none z-0"></div>
+    <div class="cursor-quant hidden md:block"></div>
+
+    <!-- HUD NAVIGATION -->
+    <nav class="fixed top-0 w-full z-50 bg-term-void/90 border-b border-white/10 backdrop-blur-sm">
+        <div class="flex justify-between items-stretch h-14">
+            
+            <!-- Logo Area -->
+            <div class="flex items-center px-6 border-r border-white/10 cursor-pointer hover:bg-white/5 transition-colors group" onclick="scrollToSection('hero')">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-alpha-green mr-3 group-hover:animate-pulse"></i>
+                <span class="font-display font-bold text-lg tracking-widest text-white">MONETA</span>
+            </div>
+
+            <!-- Central Data Ticker (Hidden on Mobile) -->
+            <div class="hidden lg:flex flex-1 items-center border-r border-white/10 font-mono text-[10px] text-gray-500 uppercase overflow-hidden relative">
+                <div class="flex gap-8 whitespace-nowrap animate-marquee px-4">
+                    <span class="flash-update">SYS_LATENCY: 12ms</span>
+                    <span>//</span>
+                    <span>ALGO_STATUS: SECURE</span>
+                    <span>//</span>
+                    <span class="flash-update-alt">VOLATILITY_INDEX: LOW</span>
+                    <span>//</span>
+                    <span class="text-alpha-green">MARKET_CONNECTION: ESTABLISHED</span>
+                    <span>//</span>
+                    <span class="flash-update">SYS_LATENCY: 12ms</span>
+                    <span>//</span>
+                    <span>ALGO_STATUS: SECURE</span>
+                    <span>//</span>
+                    <span class="flash-update-alt">VOLATILITY_INDEX: LOW</span>
+                    <span>//</span>
+                    <span class="text-alpha-green">MARKET_CONNECTION: ESTABLISHED</span>
+                    <span>//</span>
+                    <span class="flash-update">SYS_LATENCY: 12ms</span>
+                    <span>//</span>
+                    <span>ALGO_STATUS: SECURE</span>
+                    <span>//</span>
+                    <span class="flash-update-alt">VOLATILITY_INDEX: LOW</span>
+                    <span>//</span>
+                    <span class="text-alpha-green">MARKET_CONNECTION: ESTABLISHED</span>
+                    <span>//</span>
+                    <span class="flash-update">SYS_LATENCY: 12ms</span>
+                    <span>//</span>
+                    <span>ALGO_STATUS: SECURE</span>
+                    <span>//</span>
+                    <span class="flash-update-alt">VOLATILITY_INDEX: LOW</span>
+                    <span>//</span>
+                    <span class="text-alpha-green">MARKET_CONNECTION: ESTABLISHED</span>
+                </div>
+            </div>
+
+            <!-- Action Area -->
+            <div class="flex items-center">
+                <button class="hidden md:block px-6 h-full border-l border-white/10 font-mono text-[10px] uppercase hover:bg-white/5 hover:text-white transition-colors text-gray-400" onclick="scrollToSection('thesis')">
+                    Thesis
+                </button>
+                <button class="hidden md:block px-6 h-full border-l border-white/10 font-mono text-[10px] uppercase hover:bg-white/5 hover:text-white transition-colors text-gray-400" onclick="scrollToSection('performance')">
+                    Performance
+                </button>
+                <button class="px-8 h-full bg-paper text-term-void font-mono font-bold text-[10px] uppercase hover:bg-alpha-green transition-colors" onclick="scrollToSection('allocation')">
+                    Request Allocation
+                </button>
+            </div>
+
+        </div>
+    </nav>
+
+    <!-- MAIN SCROLL CONTENT -->
+    <main class="relative z-10 pt-14">
+
+        <!-- ================= SECTION 1: HERO (THE TERMINAL) ================= -->
+        <section id="hero" class="min-h-[85vh] relative flex flex-col justify-end border-b border-white/10 pb-16 px-6">
+            
+            <!-- Live Canvas Chart -->
+            <canvas id="alpha-chart"></canvas>
+
+            <div class="relative z-10 max-w-[1600px] w-full mx-auto">
+                <div class="font-mono text-xs text-alpha-green mb-6 flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 bg-alpha-green animate-pulse"></div>
+                    <span>[ DEPLOYMENT READY ]</span>
+                </div>
+                
+                <h1 class="font-display font-black text-6xl md:text-[10vw] leading-[0.85] tracking-tighter text-white mb-8 scramble-text" data-text="ALGORITHMIC">ALGORITHMIC</h1>
+                <h1 class="font-display font-black text-6xl md:text-[10vw] leading-[0.85] tracking-tighter text-paper/20 scramble-text" data-text="SUPREMACY.">SUPREMACY.</h1>
+                
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-12 mt-16 items-end">
+                    <div class="md:col-span-5 font-mono text-sm text-gray-400 leading-relaxed border-l border-white/20 pl-6">
+                        We engineer proprietary digital infrastructure for elite B2B enterprises. Eliminating friction through high-frequency design and uncompromising logic gates.
+                    </div>
+                    <div class="md:col-span-7 flex flex-wrap gap-4 justify-start md:justify-end">
+                        <button class="btn-moneta hover-target" onclick="scrollToSection('performance')">Initialize Analytics</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: THESIS (THE LOGIC GATES) ================= -->
+        <section id="thesis" class="py-32 border-b border-white/10 relative bg-term-void">
+            <div class="max-w-[1600px] mx-auto px-6">
+                
+                <div class="flex flex-col md:flex-row justify-between items-baseline mb-20">
+                    <h2 class="font-display text-4xl md:text-6xl font-bold uppercase tracking-tight text-white">The Thesis</h2>
+                    <span class="font-mono text-xs text-gray-500 mt-4 md:mt-0">[ CORE_MECHANICS ]</span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-px bg-white/10 border border-white/10">
+                    
+                    <!-- Gate 1 -->
+                    <div class="data-block p-10 hover-target cursor-pointer">
+                        <div class="flex justify-between items-start mb-12">
+                            <span class="font-mono text-xs text-alpha-green">VAR_01</span>
+                            <i data-lucide="activity" class="w-5 h-5 text-gray-600"></i>
+                        </div>
+                        <h3 class="font-display text-3xl mb-4 text-white">Absolute Precision</h3>
+                        <p class="font-sans text-gray-400 text-sm leading-relaxed">
+                            Every pixel is a data point. We discard the superfluous. Our interfaces are built on strict mathematical grids that project institutional trust instantly.
+                        </p>
+                    </div>
+
+                    <!-- Gate 2 -->
+                    <div class="data-block p-10 hover-target cursor-pointer">
+                        <div class="flex justify-between items-start mb-12">
+                            <span class="font-mono text-xs text-alpha-green">VAR_02</span>
+                            <i data-lucide="zap" class="w-5 h-5 text-gray-600"></i>
+                        </div>
+                        <h3 class="font-display text-3xl mb-4 text-white">Velocity at Scale</h3>
+                        <p class="font-sans text-gray-400 text-sm leading-relaxed">
+                            Speed is not a feature; it is the foundation. Static edge-deployment ensures global load times under 300ms, maximizing algorithmic preference.
+                        </p>
+                    </div>
+
+                    <!-- Gate 3 -->
+                    <div class="data-block p-10 hover-target cursor-pointer">
+                        <div class="flex justify-between items-start mb-12">
+                            <span class="font-mono text-xs text-alpha-green">VAR_03</span>
+                            <i data-lucide="cpu" class="w-5 h-5 text-gray-600"></i>
+                        </div>
+                        <h3 class="font-display text-3xl mb-4 text-white">System Autonomy</h3>
+                        <p class="font-sans text-gray-400 text-sm leading-relaxed">
+                            Websites are liabilities; systems are assets. We wire your frontend directly into logic workflows, creating an acquisition machine that runs on autopilot.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: PERFORMANCE (DATA FEED) ================= -->
+        <section id="performance" class="py-32 border-b border-white/10 bg-term-surface">
+            <div class="max-w-[1600px] mx-auto px-6">
+                
+                <div class="mb-16">
+                    <span class="font-mono text-[10px] text-hf-orange uppercase tracking-widest block mb-4 border border-hf-orange/30 w-fit px-2 py-1 bg-hf-orange/10">Historical Yields</span>
+                    <h2 class="font-display text-5xl md:text-7xl font-bold uppercase tracking-tight text-white">Performance Index</h2>
+                </div>
+
+                <!-- Telemetry Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    
+                    <!-- Metric 1 -->
+                    <div class="data-block p-8 flex flex-col justify-between min-h-[200px]">
+                        <span class="font-mono text-[10px] text-gray-500 uppercase">Avg. Conversion Delta</span>
+                        <div class="mt-4">
+                            <span class="font-mono text-4xl md:text-5xl font-bold text-white block flash-update counter" data-target="314">0</span>
+                            <span class="font-mono text-xs text-alpha-green">▲ BPS LIFT</span>
+                        </div>
+                    </div>
+
+                    <!-- Metric 2 -->
+                    <div class="data-block p-8 flex flex-col justify-between min-h-[200px]">
+                        <span class="font-mono text-[10px] text-gray-500 uppercase">LCP Load Time</span>
+                        <div class="mt-4">
+                            <div class="flex items-baseline gap-1">
+                                <span class="font-mono text-4xl md:text-5xl font-bold text-white block counter" data-target="0.3">0.0</span>
+                                <span class="font-mono text-sm text-gray-400">s</span>
+                            </div>
+                            <span class="font-mono text-xs text-alpha-green">▲ OPTIMAL TIER</span>
+                        </div>
+                    </div>
+
+                    <!-- Market Concept Video (Takes up 2 cols) -->
+                    <div class="data-block md:col-span-2 lg:col-span-2 p-1 min-h-[200px] group cursor-pointer hover-target">
+                        <div class="w-full h-full relative bg-black">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover opacity-60 filter grayscale group-hover:grayscale-0 transition-all duration-700">
+                                 <source src="https://videos.pexels.com/video-files/3205626/3205626-hd_1920_1080_25fps.mp4" type="video/mp4">
+                            </video>
+                            <div class="absolute inset-0 bg-term-void/20 group-hover:bg-transparent transition-colors"></div>
+                            <div class="absolute bottom-4 left-4 font-mono text-[10px] bg-black/80 px-2 py-1 text-white border border-white/20">
+                                LIVE_MODEL_PREVIEW
+                            </div>
+                            <div class="absolute top-4 right-4 font-mono text-[10px] text-alpha-green">
+                                PROCESSING...
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Log Output Feed (Faux Terminal) -->
+                <div class="mt-6 data-block p-6 font-mono text-[10px] md:text-xs text-gray-500 h-48 overflow-hidden relative">
+                    <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-term-void via-transparent to-term-void z-10 pointer-events-none"></div>
+                    <div id="log-feed" class="space-y-2 relative z-0">
+                        <!-- Populated by JS -->
+                        <div>[SYS] Initializing data stream... OK</div>
+                        <div class="text-alpha-green">[LOG] Architecture deployed across 14 edge nodes.</div>
+                        <div>[NET] Ping response: 14ms (Optimal)</div>
+                        <div>[SEC] RSA-4096 handshake established.</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: ALLOCATION (CONTACT) ================= -->
+        <section id="allocation" class="py-32 relative bg-term-void min-h-[90vh] flex items-center">
+            <!-- Subtle glow behind form -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-alpha-green/5 blur-[150px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-4xl mx-auto w-full px-6 relative z-10">
+                <div class="mb-16">
+                    <h2 class="font-display text-5xl md:text-7xl font-black text-white mb-4 tracking-tighter">REQUEST ALLOCATION</h2>
+                    <p class="font-mono text-xs text-gray-400 max-w-lg leading-relaxed">
+                        Access to the Moneta Protocol is strictly gated. Submit your entity parameters below to request build capacity.
+                    </p>
+                </div>
+
+                <div class="data-block p-8 md:p-12 shadow-[0_0_50px_rgba(0,255,65,0.05)]">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-8">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-2">
+                                <label class="font-mono text-[10px] uppercase text-gray-500">Corporate Entity / Identity</label>
+                                <input type="text" class="quant-input hover-target" placeholder="e.g. Apex Capital" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-mono text-[10px] uppercase text-gray-500">Secure Comm Link</label>
+                                <input type="email" class="quant-input hover-target" placeholder="admin@entity.com" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="space-y-2">
+                                <label class="font-mono text-[10px] uppercase text-gray-500">Current AUM / Revenue Run Rate</label>
+                                <select class="quant-input hover-target cursor-pointer appearance-none">
+                                    <option>$1M - $5M</option>
+                                    <option>$5M - $25M</option>
+                                    <option>$25M+</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="font-mono text-[10px] uppercase text-gray-500">Target Architecture</label>
+                                <select class="quant-input hover-target cursor-pointer appearance-none">
+                                    <option>Enterprise Landing Protocol</option>
+                                    <option>Complete Web App Architecture</option>
+                                    <option>Strategic Aesthetic Rebrand</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-8">
+                            <button type="submit" class="w-full bg-paper text-term-void py-6 font-mono font-bold text-xl uppercase tracking-widest hover:bg-alpha-green hover:shadow-[0_0_30px_rgba(0,255,65,0.4)] transition-all hover-target">
+                                Transmit Request
+                            </button>
+                        </div>
+                        
+                        <div class="flex items-center justify-between font-mono text-[9px] text-gray-600 border-t border-white/10 pt-6">
+                            <span class="flex items-center gap-2"><i data-lucide="lock" class="w-3 h-3"></i> PGP Encrypted Route</span>
+                            <span id="form-ip">IP_LOGGED: TRUE</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS SHUTTER -->
+    <div id="success-modal" class="fixed inset-0 bg-term-void/95 backdrop-blur-md z-[60000] hidden flex-col items-center justify-center px-6">
+        <div class="max-w-xl w-full data-block p-12 text-center transform scale-95 opacity-0 border-alpha-green" id="success-content">
+            <i data-lucide="check-square" class="w-16 h-16 text-alpha-green mx-auto mb-8"></i>
+            <h2 class="font-display font-bold text-4xl text-white mb-4 tracking-tighter">DATA PACKET RECEIVED</h2>
+            <div class="font-mono text-xs text-gray-400 mb-10 space-y-2 text-left bg-black p-4 border border-white/10">
+                <p class="text-alpha-green">> Handshake successful.</p>
+                <p>> Payload decrypted and routed to engineering desk.</p>
+                <p>> Expected response time: 24.00 Hrs.</p>
+            </div>
+            <button onclick="closeSuccess()" class="btn-moneta w-full hover-target">
+                Terminate Connection
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-white/10 bg-term-surface py-8 px-6 relative z-10">
+        <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="font-display font-bold text-xl tracking-tighter text-white/50">OBD.MONETA</div>
+            <div class="flex gap-8 font-mono text-[10px] uppercase text-gray-500">
+                <a href="#" class="hover:text-alpha-green transition-colors">Privacy</a>
+                <a href="#" class="hover:text-alpha-green transition-colors">Terms</a>
+                <a href="#" class="hover:text-alpha-green transition-colors">System Specs</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- CUSTOM CROSSHAIR CURSOR ---
+        const cursor = document.querySelector('.cursor-quant');
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0 });
+        });
+
+        document.querySelectorAll('.hover-target, button, input, select').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                gsap.to(cursor, { width: 60, height: 60, duration: 0.2 });
+                cursor.style.mixBlendMode = "normal";
+            });
+            el.addEventListener('mouseleave', () => {
+                gsap.to(cursor, { width: 30, height: 30, duration: 0.2 });
+                cursor.style.mixBlendMode = "difference";
+            });
+        });
+
+        // --- SCRAMBLE TEXT REVEAL ENGINE ---
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&';
+        function scrambleReveal(element) {
+            if(element.classList.contains('revealed')) return;
+            element.classList.add('revealed');
+            element.style.visibility = 'visible';
+            
+            const original = element.getAttribute('data-text');
+            let iterations = 0;
+            const maxIter = 15;
+            
+            const interval = setInterval(() => {
+                element.innerText = original.split('').map((letter, index) => {
+                    if(index < iterations / maxIter * original.length) {
+                        return original[index];
+                    }
+                    return chars[Math.floor(Math.random() * chars.length)];
+                }).join('');
+                
+                iterations++;
+                if(iterations > maxIter) clearInterval(interval);
+            }, 40);
+        }
+
+        window.addEventListener('load', () => {
+            // Trigger scramble on load for hero
+            setTimeout(() => {
+                document.querySelectorAll('.scramble-text').forEach(el => scrambleReveal(el));
+            }, 300);
+        });
+
+
+        // --- LIVE LINE CHART CANVAS ---
+        const canvas = document.getElementById('alpha-chart');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let points = [];
+        const maxPoints = 100;
+        let chartX = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            // Initialize points
+            points = [];
+            for(let i=0; i<maxPoints; i++) {
+                points.push(height/2); // Start middle
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function drawChart() {
+            ctx.clearRect(0, 0, width, height);
+            
+            // Generate new point (random walk favoring upward trend slightly)
+            let lastY = points[points.length - 1];
+            let newY = lastY + (Math.random() - 0.48) * 40; 
+            // Keep bounds
+            if(newY < 100) newY = 100;
+            if(newY > height - 100) newY = height - 100;
+            
+            points.push(newY);
+            if(points.length > maxPoints) points.shift();
+
+            // Draw Line
+            ctx.beginPath();
+            ctx.strokeStyle = '#00FF41';
+            ctx.lineWidth = 2;
+            
+            const sliceWidth = width / (maxPoints - 1);
+            
+            ctx.moveTo(0, points[0]);
+            for(let i=1; i<points.length; i++) {
+                ctx.lineTo(i * sliceWidth, points[i]);
+            }
+            ctx.stroke();
+
+            // Draw subtle fill below
+            ctx.lineTo(width, height);
+            ctx.lineTo(0, height);
+            ctx.fillStyle = 'rgba(0, 255, 65, 0.05)';
+            ctx.fill();
+
+            // Slower update for chart feel
+            setTimeout(() => requestAnimationFrame(drawChart), 100); 
+        }
+        drawChart();
+
+        // --- NUMBER COUNTERS ---
+        const counters = document.querySelectorAll('.counter');
+        counters.forEach(counter => {
+            const target = parseFloat(counter.getAttribute('data-target'));
+            const isFloat = target % 1 !== 0;
+
+            ScrollTrigger.create({
+                trigger: counter,
+                start: "top 85%",
+                onEnter: () => {
+                    gsap.to(counter, {
+                        innerHTML: target,
+                        duration: 1.5,
+                        ease: "power2.out",
+                        snap: { innerHTML: isFloat ? 0.1 : 1 },
+                        onUpdate: function() {
+                            if(isFloat) {
+                                counter.innerHTML = Number(this.targets()[0].innerHTML).toFixed(1);
+                            }
+                            if(target === 314 && counter.innerHTML == 314) counter.innerHTML = "+314";
+                        }
+                    });
+                },
+                once: true
+            });
+        });
+
+        // --- FAKE LOG FEED GENERATOR ---
+        const logFeed = document.getElementById('log-feed');
+        const logMessages = [
+            "[NET] Optimizing route pathways...",
+            "[SYS] Analyzing traffic patterns.",
+            "<span class='text-hf-orange'>[WARN] High load detected on Node 4. Re-balancing.</span>",
+            "<span class='text-alpha-green'>[OPT] Conversion probability increased by 2.4%.</span>",
+            "[DB] Query execution: 0.02ms.",
+            "[SEC] Connection verified.",
+        ];
+        setInterval(() => {
+            const msg = logMessages[Math.floor(Math.random() * logMessages.length)];
+            const div = document.createElement('div');
+            div.innerHTML = msg;
+            logFeed.appendChild(div);
+            // keep max 5 items
+            if(logFeed.children.length > 5) {
+                logFeed.removeChild(logFeed.firstChild);
+            }
+        }, 3000);
+
+        // --- SMOOTH SCROLL ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.2, scrollTo: { y: `#${id}`, offsetY: 56 }, ease: "power3.inOut" });
+        }
+
+        // --- FORM MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.3 });
+            gsap.fromTo(content, { scale: 0.95, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, delay: 0.1, ease: "back.out(1.5)" });
+        }
+        
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-modal');
+            const content = document.getElementById('success-content');
+            gsap.to(content, { scale: 0.95, opacity: 0, duration: 0.3 });
+            gsap.to(modal, { opacity: 0, duration: 0.3, delay: 0.1, onComplete: () => {
+                modal.style.display = 'none';
+                window.scrollTo(0,0);
+            }});
+        }
+
+    </script>
+</body>
+</html>

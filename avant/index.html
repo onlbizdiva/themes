@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | AVANT PROTOCOL</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Syne:wght@400;600;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Syne', 'sans-serif'],
+                        display: ['Anton', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        'avant-void': '#030303',
+                        'avant-chrome': '#E5E5E5',
+                        'avant-red': '#E60000',
+                        'avant-graphite': '#1A1A1A',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #030303;
+            color: #E5E5E5;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::-webkit-scrollbar { display: none; }
+
+        /* THE FILM GRAIN */
+        .avant-grain {
+            position: fixed; inset: 0; pointer-events: none; z-index: 50;
+            opacity: 0.06; mix-blend-mode: screen;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)"/%3E%3C/svg%3E');
+        }
+
+        /* CUSTOM DIAMOND CURSOR */
+        .cursor-diamond {
+            position: fixed; top: 0; left: 0;
+            width: 16px; height: 16px;
+            border: 1px solid #E60000;
+            pointer-events: none; z-index: 9999;
+            transform: translate(-50%, -50%) rotate(45deg);
+            transition: width 0.3s, height 0.3s, background-color 0.3s, transform 0.1s;
+            mix-blend-mode: difference;
+        }
+        .cursor-diamond.active {
+            width: 60px; height: 60px;
+            background: rgba(230, 0, 0, 0.1);
+            backdrop-filter: blur(2px);
+        }
+        .cursor-dot {
+            position: fixed; top: 0; left: 0;
+            width: 4px; height: 4px;
+            background: #E5E5E5;
+            border-radius: 50%;
+            pointer-events: none; z-index: 10000;
+            transform: translate(-50%, -50%);
+        }
+
+        /* VERTICAL MARQUEE */
+        .spine-marquee {
+            position: absolute;
+            top: 0; bottom: 0; left: 50%;
+            width: 40px;
+            transform: translateX(-50%);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+        .spine-content {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            white-space: nowrap;
+            animation: scroll-y 20s linear infinite;
+            font-family: 'Anton', sans-serif;
+            font-size: 1.5rem;
+            color: #E60000;
+            letter-spacing: 0.1em;
+        }
+        @keyframes scroll-y { 0% { transform: translateY(0); } 100% { transform: translateY(-50%); } }
+
+        /* IMAGE HOVER PHYSICS */
+        .editorial-img {
+            filter: grayscale(100%) contrast(1.1);
+            transform: scale(1.05);
+            transition: filter 0.8s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .editorial-card:hover .editorial-img {
+            filter: grayscale(0%) contrast(1);
+            transform: scale(1);
+        }
+
+        /* TEXT OUTLINE */
+        .text-hollow {
+            -webkit-text-stroke: 1px rgba(229, 229, 229, 0.8);
+            color: transparent;
+        }
+
+        /* BUTTONS */
+        .btn-avant {
+            position: relative;
+            display: inline-flex;
+            padding: 1.5rem 3rem;
+            background: transparent;
+            color: #E5E5E5;
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 0.75rem;
+            overflow: hidden;
+            border: 1px solid #E5E5E5;
+            transition: color 0.4s;
+        }
+        .btn-avant::before {
+            content: ''; position: absolute;
+            bottom: 0; left: 0; width: 100%; height: 0%;
+            background: #E60000;
+            transition: height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: -1;
+        }
+        .btn-avant:hover { color: #030303; border-color: #E60000; }
+        .btn-avant:hover::before { height: 100%; }
+
+        /* INPUTS */
+        .couture-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(229, 229, 229, 0.2);
+            padding: 1.5rem 0;
+            color: #E5E5E5;
+            font-family: 'Syne', sans-serif;
+            font-size: 1.25rem;
+            transition: border-color 0.3s;
+            border-radius: 0;
+        }
+        .couture-input:focus { outline: none; border-bottom-color: #E60000; }
+        .couture-input::placeholder { color: rgba(229, 229, 229, 0.3); }
+
+        /* REVEAL MASKS */
+        .mask-reveal {
+            clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+            transition: clip-path 1.2s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        .mask-reveal.active {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+    </style>
+</head>
+<body class="selection:bg-avant-red selection:text-white">
+
+    <!-- GLOBAL FX -->
+    <div class="avant-grain"></div>
+    <div class="cursor-diamond hidden md:block"></div>
+    <div class="cursor-dot hidden md:block"></div>
+
+    <!-- HUD NAVIGATION -->
+    <nav class="fixed top-0 w-full p-8 md:p-12 z-50 flex justify-between items-start mix-blend-difference pointer-events-none">
+        <div class="pointer-events-auto flex flex-col group cursor-pointer" onclick="scrollToSection('hero')">
+            <span class="font-display text-4xl tracking-widest text-white leading-none">AVANT.</span>
+            <span class="font-mono text-[9px] text-avant-red tracking-[0.4em] uppercase mt-2">Haute_Digital</span>
+        </div>
+        
+        <div class="pointer-events-auto hidden md:flex items-center gap-12 font-sans text-xs font-bold uppercase tracking-[0.2em] text-avant-chrome">
+            <button onclick="scrollToSection('split-showcase')" class="hover:text-avant-red transition-colors hover-target">The Collection</button>
+            <button onclick="scrollToSection('manifesto')" class="hover:text-avant-red transition-colors hover-target">Philosophy</button>
+            <button onclick="scrollToSection('atelier')" class="hover:text-avant-red transition-colors hover-target border-b border-avant-chrome pb-1">The Fitting</button>
+        </div>
+    </nav>
+
+    <!-- FLOATING PROGRESS (Right) -->
+    <div class="fixed right-12 top-1/2 -translate-y-1/2 z-40 h-64 w-px bg-white/10 hidden md:block pointer-events-none">
+        <div class="w-full bg-avant-red" id="scroll-progress" style="height: 0%;"></div>
+    </div>
+
+    <!-- MAIN SCROLL CONTENT -->
+    <main class="relative z-10">
+
+        <!-- ================= SECTION 1: HERO (THE COVER) ================= -->
+        <section id="hero" class="min-h-screen relative flex items-center justify-center overflow-hidden">
+            
+            <div class="absolute inset-0 z-0">
+                <!-- High-End Fashion Abstract Image -->
+                <img src="https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=2000&auto=format&fit=crop" class="w-full h-full object-cover opacity-40 grayscale" alt="Fashion Cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-avant-void via-avant-void/50 to-transparent"></div>
+            </div>
+
+            <div class="relative z-10 w-full max-w-[1600px] mx-auto px-6 text-center flex flex-col items-center pt-20">
+                
+                <div class="overflow-hidden mb-6">
+                    <span class="font-mono text-[10px] text-avant-red uppercase tracking-[0.5em] block reveal-text translate-y-full opacity-0">Issue_059 // The New Standard</span>
+                </div>
+
+                <div class="overflow-hidden">
+                    <h1 class="font-display text-[15vw] leading-[0.8] tracking-tighter text-white uppercase reveal-text translate-y-full opacity-0" style="transition-delay: 0.1s;">
+                        DIGITAL
+                    </h1>
+                </div>
+                <div class="overflow-hidden">
+                    <h1 class="font-display text-[15vw] leading-[0.8] tracking-tighter uppercase text-hollow reveal-text translate-y-full opacity-0" style="transition-delay: 0.2s;">
+                        COUTURE
+                    </h1>
+                </div>
+
+                <div class="mt-16 reveal-text opacity-0" style="transition-delay: 0.4s;">
+                    <p class="font-sans text-lg md:text-xl font-light text-gray-400 max-w-xl mx-auto leading-relaxed mb-12">
+                        We engineer breathtaking visual authority for brands that refuse to blend in. The intersection of brutalism and luxury.
+                    </p>
+                    <button class="btn-avant hover-target" onclick="scrollToSection('split-showcase')">
+                        View The Lookbook
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 2: THE RUNWAY (SPLIT SCROLL) ================= -->
+        <!-- Desktop: Sticky Left, Scrolling Right. Mobile: Stacked -->
+        <section id="split-showcase" class="relative bg-avant-void border-t border-white/10">
+            
+            <!-- Central Spine Marquee (Desktop Only) -->
+            <div class="spine-marquee hidden lg:flex">
+                <div class="spine-content">
+                    /// THE AESTHETIC ECONOMY /// VISUAL DOMINANCE /// NO COMPROMISE /// THE AESTHETIC ECONOMY /// VISUAL DOMINANCE /// NO COMPROMISE 
+                </div>
+                <div class="spine-content">
+                    /// THE AESTHETIC ECONOMY /// VISUAL DOMINANCE /// NO COMPROMISE /// THE AESTHETIC ECONOMY /// VISUAL DOMINANCE /// NO COMPROMISE 
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row w-full">
+                
+                <!-- LEFT: STICKY MANIFESTO -->
+                <div class="w-full lg:w-1/2 lg:h-screen lg:sticky top-0 p-10 md:p-24 flex flex-col justify-center border-b lg:border-b-0 lg:border-r border-white/10 z-20 bg-avant-void">
+                    <span class="font-mono text-[10px] text-avant-red uppercase tracking-[0.4em] mb-8 block">01 // The Philosophy</span>
+                    <h2 class="font-display text-7xl md:text-[6vw] leading-[0.85] tracking-tighter mb-10 text-white uppercase">
+                        ATTENTION<br>
+                        IS THE ONLY<br>
+                        <span class="text-hollow">CURRENCY.</span>
+                    </h2>
+                    <p class="font-sans text-gray-400 text-lg leading-relaxed max-w-md">
+                        In a market flooded with templates, custom architecture is the ultimate flex. We build digital environments that act as velvet ropes—inviting the elite and filtering the rest. 
+                    </p>
+                    <div class="mt-16 flex gap-8 font-mono text-xs uppercase tracking-widest">
+                        <div class="flex flex-col gap-2">
+                            <span class="text-white font-bold">Aesthetics</span>
+                            <span class="text-gray-600">Brutalist / Chic</span>
+                        </div>
+                        <div class="flex flex-col gap-2 border-l border-white/20 pl-8">
+                            <span class="text-white font-bold">Mechanics</span>
+                            <span class="text-gray-600">Kinetic / Fluid</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: SCROLLING LOOKBOOK -->
+                <div class="w-full lg:w-1/2 relative z-10 bg-avant-graphite">
+                    
+                    <!-- Look 1 -->
+                    <div class="h-[80vh] lg:h-screen w-full flex items-center justify-center p-10 border-b border-white/10 editorial-card">
+                        <div class="relative w-full max-w-lg aspect-[3/4] overflow-hidden mask-reveal">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover editorial-img" alt="Look 01">
+                            <div class="absolute bottom-6 left-6 mix-blend-difference text-white">
+                                <span class="font-mono text-[10px] uppercase tracking-widest block mb-1">Look_01</span>
+                                <h3 class="font-display text-4xl">NOIR</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Look 2 -->
+                    <div class="h-[80vh] lg:h-screen w-full flex items-center justify-center p-10 border-b border-white/10 editorial-card bg-[#0a0a0a]">
+                        <div class="relative w-full max-w-lg aspect-[4/5] overflow-hidden mask-reveal">
+                            <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" class="w-full h-full object-cover editorial-img" alt="Look 02">
+                            <div class="absolute top-6 right-6 mix-blend-difference text-white text-right">
+                                <span class="font-mono text-[10px] uppercase tracking-widest block mb-1">Look_02</span>
+                                <h3 class="font-display text-4xl">CHROME</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Look 3 -->
+                    <div class="h-[80vh] lg:h-screen w-full flex items-center justify-center p-10 border-b border-white/10 editorial-card">
+                        <div class="relative w-full max-w-lg aspect-square overflow-hidden mask-reveal">
+                            <video autoplay loop muted playsinline class="w-full h-full object-cover editorial-img">
+                                <source src="https://videos.pexels.com/video-files/4761426/4761426-hd_1920_1080_30fps.mp4" type="video/mp4">
+                            </video>
+                            <div class="absolute bottom-6 left-6 mix-blend-difference text-white">
+                                <span class="font-mono text-[10px] uppercase tracking-widest block mb-1">Look_03</span>
+                                <h3 class="font-display text-4xl">KINETIC</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 3: THE ATELIER (DATA/ACADEMY) ================= -->
+        <section id="manifesto" class="py-40 px-6 bg-avant-void relative border-t border-white/10">
+            <div class="max-w-[1600px] mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-end mb-24 gap-12 border-b border-white/10 pb-12">
+                    <h2 class="font-display text-7xl md:text-9xl text-white tracking-tighter leading-none">THE<br>ATELIER.</h2>
+                    <div class="text-right">
+                        <span class="font-mono text-xs text-avant-red uppercase tracking-widest block mb-2">Systems & Infrastructure</span>
+                        <p class="font-sans text-gray-500 max-w-sm">The framework behind the fashion. Uncompromising technical specs for elite brands.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/10 border border-white/10">
+                    
+                    <!-- Spec 1 -->
+                    <div class="bg-avant-graphite p-12 md:p-16 hover:bg-avant-void transition-colors group cursor-pointer hover-target">
+                        <h3 class="font-display text-5xl text-white mb-6 group-hover:text-avant-red transition-colors">01 /<br>SPEED</h3>
+                        <p class="font-sans text-gray-400 leading-relaxed mb-12">Headless architecture deployed on global edge networks. Load times under 400ms. Beauty means nothing if it lags.</p>
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-avant-red border-b border-avant-red pb-1">View Telemetry</span>
+                    </div>
+
+                    <!-- Spec 2 -->
+                    <div class="bg-avant-graphite p-12 md:p-16 hover:bg-avant-void transition-colors group cursor-pointer hover-target">
+                        <h3 class="font-display text-5xl text-white mb-6 group-hover:text-avant-red transition-colors">02 /<br>MOTION</h3>
+                        <p class="font-sans text-gray-400 leading-relaxed mb-12">Bespoke GSAP animations. We script physics into the DOM, making digital elements feel like heavy, tactile fabrics.</p>
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-avant-red border-b border-avant-red pb-1">View Library</span>
+                    </div>
+
+                    <!-- Spec 3 -->
+                    <div class="bg-avant-graphite p-12 md:p-16 hover:bg-avant-void transition-colors group cursor-pointer hover-target">
+                        <h3 class="font-display text-5xl text-white mb-6 group-hover:text-avant-red transition-colors">03 /<br>LOGIC</h3>
+                        <p class="font-sans text-gray-400 leading-relaxed mb-12">Seamless integration with your CRM and payment gateways. The frontend seduces, the backend scales automatically.</p>
+                        <span class="font-mono text-[10px] uppercase tracking-widest text-avant-red border-b border-avant-red pb-1">View Stack</span>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SECTION 4: THE FITTING (CONTACT) ================= -->
+        <section id="atelier" class="py-40 px-6 bg-avant-void relative min-h-screen flex items-center border-t border-white/10">
+            <!-- Glow -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-avant-red/10 blur-[150px] rounded-full pointer-events-none"></div>
+
+            <div class="max-w-4xl mx-auto w-full relative z-10">
+                <div class="text-center mb-24">
+                    <span class="font-mono text-[10px] text-avant-red uppercase tracking-[0.5em] mb-6 block">Exclusive Access</span>
+                    <h2 class="font-display text-7xl md:text-[10vw] leading-none text-white tracking-tighter">THE<br>FITTING.</h2>
+                </div>
+
+                <div class="bg-avant-graphite border border-white/5 p-10 md:p-20 shadow-2xl">
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-12">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                            <div>
+                                <label class="font-mono text-[9px] uppercase tracking-widest text-gray-500 mb-4 block">Director Name</label>
+                                <input type="text" class="couture-input hover-target" placeholder="Enter Identity" required>
+                            </div>
+                            <div>
+                                <label class="font-mono text-[9px] uppercase tracking-widest text-gray-500 mb-4 block">Secure Email</label>
+                                <input type="email" class="couture-input hover-target" placeholder="communications@brand.com" required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="font-mono text-[9px] uppercase tracking-widest text-gray-500 mb-4 block">Commission Type</label>
+                            <select class="couture-input hover-target cursor-pointer appearance-none bg-transparent">
+                                <option class="bg-avant-graphite">Full Architectural Build ($15k+)</option>
+                                <option class="bg-avant-graphite">Aesthetic Redirection ($8k+)</option>
+                                <option class="bg-avant-graphite">Brand Consulting</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-10">
+                            <button type="submit" class="w-full bg-white text-black font-display text-4xl uppercase py-8 hover:bg-avant-red hover:text-white transition-colors duration-500 hover-target">
+                                Request Commission
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- SUCCESS MODAL -->
+    <div id="success-shutter" class="fixed inset-0 bg-avant-void z-[60000] hidden flex-col items-center justify-center px-6">
+        <div class="text-center max-w-2xl transform scale-95 opacity-0" id="success-content">
+            <h2 class="font-display text-7xl md:text-9xl text-white mb-6 uppercase tracking-tighter">SECURED.</h2>
+            <p class="font-sans text-xl text-gray-400 leading-relaxed mb-16 font-light">
+                Your request has been woven into our system. Our directors will review your parameters and establish contact via your secure channel.
+            </p>
+            <button onclick="closeSuccess()" class="btn-avant hover-target">
+                Return to Gallery
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-avant-void py-16 px-10 border-t border-white/10 relative z-20">
+        <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="font-display text-4xl text-white tracking-tighter">AVANT.</div>
+            <div class="flex gap-12 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+                <a href="#" class="hover:text-avant-red transition-colors hover-target">Privacy</a>
+                <a href="#" class="hover:text-avant-red transition-colors hover-target">Terms</a>
+                <a href="#" class="hover:text-avant-red transition-colors hover-target">Instagram</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        // --- CUSTOM CURSOR ---
+        const cursorD = document.querySelector('.cursor-diamond');
+        const cursorDot = document.querySelector('.cursor-dot');
+        let dX = window.innerWidth/2, dY = window.innerHeight/2;
+
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(cursorDot, { x: e.clientX, y: e.clientY, duration: 0 });
+            // Add slight lag and rotation to diamond
+            gsap.to(cursorD, { 
+                x: e.clientX, 
+                y: e.clientY, 
+                rotation: "+=5", 
+                duration: 0.2, 
+                ease: "power2.out" 
+            });
+        });
+
+        document.querySelectorAll('.hover-target, button, input, select, a, .editorial-card').forEach(el => {
+            el.addEventListener('mouseenter', () => cursorD.classList.add('active'));
+            el.addEventListener('mouseleave', () => cursorD.classList.remove('active'));
+        });
+
+        // --- PROGRESS BAR ---
+        gsap.to('#scroll-progress', {
+            height: '100%',
+            ease: 'none',
+            scrollTrigger: {
+                trigger: 'body',
+                start: 'top top',
+                end: 'bottom bottom',
+                scrub: 0.1
+            }
+        });
+
+        // --- LOAD ANIMATION ---
+        window.addEventListener('load', () => {
+            gsap.to('.reveal-text', { y: 0, opacity: 1, duration: 1.5, stagger: 0.1, ease: "power4.out", delay: 0.2 });
+        });
+
+        // --- SCROLL REVEALS ---
+        gsap.utils.toArray('.mask-reveal').forEach(mask => {
+            ScrollTrigger.create({
+                trigger: mask,
+                start: "top 85%",
+                onEnter: () => mask.classList.add('active')
+            });
+        });
+
+        // --- SMOOTH SCROLL NAV ---
+        window.scrollToSection = (id) => {
+            gsap.to(window, { duration: 1.5, scrollTo: { y: `#${id}`, offsetY: 0 }, ease: "power4.inOut" });
+        }
+
+        // --- SUCCESS MODAL ---
+        window.triggerSuccess = function() {
+            const modal = document.getElementById('success-shutter');
+            const content = document.getElementById('success-content');
+            modal.style.display = 'flex';
+            
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.5 });
+            gsap.fromTo(content, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, delay: 0.2, ease: "power3.out" });
+        }
+        
+        window.closeSuccess = function() {
+            const modal = document.getElementById('success-shutter');
+            const content = document.getElementById('success-content');
+            
+            gsap.to(content, { scale: 0.95, opacity: 0, duration: 0.4 });
+            gsap.to(modal, { opacity: 0, duration: 0.5, delay: 0.2, onComplete: () => {
+                modal.style.display = 'none';
+                window.scrollTo(0,0);
+            }});
+        }
+
+    </script>
+</body>
+</html>
