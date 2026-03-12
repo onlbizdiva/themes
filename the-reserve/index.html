@@ -1,0 +1,703 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>OBD | THE RESERVE</title> 
+     
+    <!-- Fonts --> 
+    <link rel="preconnect" href="https://fonts.googleapis.com"> 
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
+    <link 
+href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Pla
+yfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet"> 
+     
+    <!-- Tailwind --> 
+    <script src="https://cdn.tailwindcss.com"></script> 
+     
+    <!-- GSAP --> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollToPlugin.min.js"></script> 
+     
+    <!-- Icons --> 
+    <script src="https://unpkg.com/lucide@latest"></script> 
+ 
+    <script> 
+        tailwind.config = { 
+            theme: { 
+                extend: { 
+                    fontFamily: { 
+                        sans: ['Montserrat', 'sans-serif'], 
+                        serif: ['Playfair Display', 'serif'], 
+                    }, 
+                    colors: { 
+                        'reserve-void': '#080a0c', /* Deep slate/ocean dark */ 
+                        'reserve-surface': '#11151a', 
+                        'reserve-gold': '#D4AF37', 
+                        'reserve-sand': '#EAE6DF', 
+                        'reserve-clay': '#8A735E', 
+                    } 
+                } 
+            } 
+        } 
+    </script> 
+ 
+    <style> 
+        body { 
+            background-color: #080a0c; 
+            color: #EAE6DF; 
+            overflow-x: hidden; 
+            scrollbar-width: none; 
+            -webkit-font-smoothing: antialiased; 
+        } 
+        body::-webkit-scrollbar { display: none; } 
+ 
+        /* THE GOLDEN HOUR GLOW */ 
+        #sun-glow { 
+            position: fixed; 
+            top: 50%; 
+            left: 50%; 
+            width: 800px; 
+            height: 800px; 
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 
+40%, transparent 70%); 
+            border-radius: 50%; 
+            transform: translate(-50%, -50%); 
+            pointer-events: none; 
+            z-index: 0; 
+            mix-blend-mode: screen; 
+            transition: width 0.5s, height 0.5s; 
+        } 
+ 
+        /* CUSTOM CURSOR */ 
+        .cursor-reserve { 
+            position: fixed; top: 0; left: 0; 
+            width: 12px; height: 12px; 
+            background: #D4AF37; 
+            border-radius: 50%; 
+            pointer-events: none; z-index: 9999; 
+            transform: translate(-50%, -50%); 
+            transition: width 0.3s, height 0.3s, background-color 0.3s; 
+            mix-blend-mode: difference; 
+        } 
+        .cursor-active { 
+            width: 60px; height: 60px; 
+            background: rgba(212, 175, 55, 0.2); 
+            border: 1px solid #D4AF37; 
+            mix-blend-mode: normal; 
+        } 
+ 
+        /* ARCHITECTURAL MASKS */ 
+        .arch-mask { 
+            clip-path: ellipse(120% 100% at 50% 100%); 
+        } 
+        .reveal-curtain { 
+            position: absolute; inset: 0; 
+            background: #080a0c; z-index: 10; 
+            transform-origin: top; 
+        } 
+ 
+        /* HORIZONTAL SCROLL GALLERY */ 
+        .gallery-container { 
+            display: flex; 
+            flex-wrap: nowrap; 
+            width: 300vw; /* 3 Items */ 
+            height: 100vh; 
+        } 
+        .gallery-item { 
+            width: 100vw; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0; 
+            padding: 0 5vw; 
+        } 
+         
+        /* PARALLAX IMAGES */ 
+        .parallax-wrap { 
+            overflow: hidden; 
+            position: relative; 
+        } 
+        .parallax-media { 
+            position: absolute; 
+            top: -15%; left: 0; 
+            width: 100%; height: 130%; 
+            object-fit: cover; 
+            will-change: transform; 
+        } 
+ 
+        /* BUTTONS */ 
+        .btn-reserve { 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 1.25rem 3rem; 
+            background: transparent; 
+            color: #EAE6DF; 
+            font-family: 'Montserrat', sans-serif; 
+            font-size: 0.75rem; 
+            font-weight: 500; 
+            text-transform: uppercase; 
+            letter-spacing: 0.2em; 
+            border: 1px solid rgba(234, 230, 223, 0.3); 
+            position: relative; 
+            overflow: hidden; 
+            transition: all 0.4s ease; 
+        } 
+        .btn-reserve::before { 
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #EAE6DF; 
+            transform: scaleY(0); transform-origin: bottom; 
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+            z-index: -1; 
+        } 
+        .btn-reserve:hover { 
+            color: #080a0c; 
+            border-color: #EAE6DF; 
+        } 
+        .btn-reserve:hover::before { transform: scaleY(1); } 
+ 
+        /* INPUTS */ 
+        .concierge-input { 
+            width: 100%; 
+            background: transparent; 
+            border: none; 
+            border-bottom: 1px solid rgba(234, 230, 223, 0.2); 
+            padding: 1.5rem 0; 
+            color: #EAE6DF; 
+            font-family: 'Playfair Display', serif; 
+            font-size: 1.5rem; 
+            transition: border-color 0.4s ease; 
+        } 
+        .concierge-input:focus { 
+            outline: none; 
+            border-bottom-color: #D4AF37; 
+        } 
+        .concierge-input::placeholder { 
+            color: rgba(234, 230, 223, 0.3); 
+            font-style: italic; 
+        } 
+ 
+        /* MOBILE FALLBACK FOR GALLERY */ 
+        @media (max-width: 1024px) { 
+            .gallery-container { 
+                flex-direction: column; 
+                width: 100%; 
+                height: auto; 
+            } 
+            .gallery-item { 
+                width: 100%; 
+                height: auto; 
+                padding: 4rem 1.5rem; 
+            } 
+        } 
+    </style> 
+</head> 
+<body class="selection:bg-reserve-gold selection:text-reserve-void"> 
+ 
+    <!-- GLOBAL FX --> 
+    <div id="sun-glow"></div> 
+    <div class="cursor-reserve hidden md:block"></div> 
+ 
+    <!-- NAVIGATION --> 
+    <nav class="fixed top-0 w-full p-8 md:p-12 z-50 flex justify-between items-start transition-all 
+duration-500" id="main-nav"> 
+        <div class="flex flex-col cursor-pointer hover-target group" onclick="gsap.to(window, 
+{scrollTo: 0, duration: 1.5})"> 
+            <span class="font-serif italic text-3xl text-reserve-sand">Reserve.</span> 
+            <div class="h-px w-0 bg-reserve-gold group-hover:w-full transition-all duration-700 
+mt-2"></div> 
+        </div> 
+         
+        <div class="hidden md:flex gap-12 font-sans text-[10px] uppercase tracking-[0.2em] 
+font-medium text-reserve-sand/70"> 
+            <button onclick="scrollToSection('ethos')" class="hover:text-reserve-gold 
+transition-colors hover-target">The Ethos</button> 
+            <button onclick="scrollToSection('destinations')" class="hover:text-neutral-200 
+transition-colors hover-target">Sanctuaries</button> 
+            <button onclick="scrollToSection('concierge')" class="hover:text-neutral-200 
+transition-colors hover-target border-b border-reserve-sand/30 pb-1">Private 
+Concierge</button> 
+        </div> 
+ 
+        <div class="md:hidden"> 
+            <i data-lucide="menu" class="w-6 h-6 text-reserve-sand"></i> 
+        </div> 
+    </nav> 
+ 
+    <!-- MAIN SCROLL CONTENT --> 
+    <main class="relative z-10"> 
+ 
+        <!-- ================= SECTION 1: HERO (THE ESTATE) ================= --> 
+        <section id="hero" class="min-h-screen relative flex items-center justify-center 
+overflow-hidden"> 
+             
+            <!-- Cinematic Video Background --> 
+            <div class="absolute inset-0 z-0 opacity-70"> 
+                <video autoplay loop muted playsinline class="w-full h-full object-cover scale-105" 
+id="hero-vid"> 
+                     <source 
+src="https://videos.pexels.com/video-files/6408226/6408226-uhd_2160_3840_25fps.mp4" 
+type="video/mp4"> 
+                </video> 
+                <!-- Arch Masking for architectural feel --> 
+                <div class="absolute inset-0 bg-reserve-void arch-mask"></div> 
+                <div class="absolute inset-0 bg-gradient-to-t from-reserve-void via-transparent 
+to-reserve-void opacity-80"></div> 
+                <div class="absolute inset-0 bg-reserve-gold/5 mix-blend-color"></div> 
+            </div> 
+ 
+            <!-- Text Content --> 
+            <div class="relative z-10 text-center max-w-5xl mx-auto px-6 pt-20"> 
+                <div class="mb-8 font-sans text-[10px] uppercase tracking-[0.4em] text-reserve-gold 
+reveal-hero opacity-0"> 
+                    Off-Market Global Portfolio 
+                </div> 
+                 
+                <h1 class="font-serif text-6xl md:text-[10vw] leading-[0.9] text-reserve-sand mb-8 
+reveal-hero opacity-0" style="transition-delay: 0.1s;"> 
+                    UNCHARTED.<br> 
+                    <span class="italic font-light">UNLISTED.</span> 
+                </h1> 
+                 
+                <p class="font-sans text-lg md:text-xl font-light text-reserve-sand/60 max-w-2xl 
+mx-auto leading-relaxed reveal-hero opacity-0" style="transition-delay: 0.2s;"> 
+                    Exclusive access to the world's most breathtaking architectural sanctuaries and 
+private island estates. Strictly by invitation. 
+                </p> 
+ 
+                <div class="mt-16 reveal-hero opacity-0" style="transition-delay: 0.3s;"> 
+                    <button class="btn-reserve hover-target" onclick="scrollToSection('concierge')"> 
+                        Request Ledger Access 
+                    </button> 
+                </div> 
+            </div> 
+ 
+            <!-- Scroll Indicator --> 
+            <div class="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6 
+opacity-50 reveal-hero opacity-0" style="transition-delay: 0.5s;"> 
+                <span class="font-sans text-[9px] uppercase tracking-widest 
+text-reserve-sand">Descend</span> 
+                <div class="w-px h-16 bg-gradient-to-b from-reserve-gold to-transparent"></div> 
+            </div> 
+        </section> 
+ 
+        <!-- ================= SECTION 2: THE ETHOS ================= --> 
+        <section id="ethos" class="py-32 md:py-48 px-6 relative z-10 bg-reserve-void"> 
+            <div class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-20 
+items-center"> 
+                 
+                <!-- Left: Aesthetic Image --> 
+                <div class="lg:col-span-5 relative"> 
+                    <div class="parallax-wrap aspect-[3/4] w-full md:w-4/5 mx-auto lg:ml-0 
+overflow-hidden rounded-t-full relative group"> 
+                        <div class="reveal-curtain"></div> 
+                        <img 
+src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=1000&auto=f
+ormat&fit=crop" class="parallax-media grayscale sepia-[0.2] group-hover:grayscale-0 
+group-hover:scale-105 transition-all duration-1000" alt="Luxury Architecture"> 
+                    </div> 
+                    <!-- Geo Tag --> 
+                    <div class="absolute -bottom-6 -right-6 md:right-0 bg-reserve-surface p-6 border 
+border-white/5 shadow-2xl"> 
+                        <span class="font-mono text-[10px] text-reserve-clay block mb-1">LAT: 36.3932° 
+N</span> 
+                        <span class="font-mono text-[10px] text-reserve-clay block">LNG: 25.4615° 
+E</span> 
+                    </div> 
+                </div> 
+ 
+                <!-- Right: Philosophy Text --> 
+                <div class="lg:col-span-7 space-y-12"> 
+                    <h2 class="font-serif text-4xl md:text-6xl leading-tight"> 
+                        We do not broker real estate.<br> 
+                        <span class="italic text-reserve-gold font-light">We curate isolation.</span> 
+                    </h2> 
+                    <p class="font-sans text-reserve-sand/60 text-lg leading-relaxed font-light 
+max-w-xl"> 
+                        True luxury is no longer found in marble lobbies or gold fixtures. It is found in 
+absolute privacy. The Reserve operates exclusively in the "Invisible Market"—representing 
+properties that will never appear on public platforms or standard brokerages. 
+                    </p> 
+                     
+                    <div class="grid grid-cols-2 gap-10 pt-10 border-t border-white/10"> 
+                        <div> 
+                            <h3 class="font-serif italic text-2xl text-reserve-sand mb-2">Vetted 
+Inventory</h3> 
+                            <p class="font-sans text-xs text-reserve-sand/50 leading-relaxed">Each 
+sanctuary is personally inspected for architectural merit and security.</p> 
+                        </div> 
+                        <div> 
+                            <h3 class="font-serif italic text-2xl text-reserve-sand mb-2">Silent 
+Transfers</h3> 
+                            <p class="font-sans text-xs text-reserve-sand/50 leading-relaxed">Complete 
+anonymity for both owners and transient residents.</p> 
+                        </div> 
+                    </div> 
+                </div> 
+ 
+            </div> 
+        </section> 
+ 
+        <!-- ================= SECTION 3: DESTINATIONS (HORIZONTAL SCROLL) 
+================= --> 
+        <!-- Hidden on Mobile, Standard Stack on Mobile handled by CSS media queries --> 
+        <section id="destinations" class="bg-reserve-surface relative z-10 overflow-hidden 
+border-y border-white/5"> 
+             
+            <div class="absolute top-12 left-12 z-20 hidden lg:block"> 
+                <span class="font-sans text-[10px] uppercase tracking-[0.3em] 
+text-reserve-gold">The Private Ledger</span> 
+            </div> 
+ 
+            <div class="gallery-container" id="horizontal-track"> 
+                 
+                <!-- Destination 1 --> 
+                <div class="gallery-item"> 
+                    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"> 
+                        <div class="space-y-8 order-2 lg:order-1"> 
+                            <span class="font-mono text-[10px] border border-reserve-gold/30 
+text-reserve-gold px-3 py-1 rounded-full uppercase tracking-widest">Available // Q4 
+2026</span> 
+                            <h2 class="font-serif text-5xl md:text-7xl">The Aegean<br><span class="italic 
+font-light">Monolith.</span></h2> 
+                            <p class="font-sans text-reserve-sand/60 font-light leading-relaxed">Carved 
+directly into the cliffside of an undisclosed Greek island. Accessible only by private maritime 
+transfer. Features a subterranean wellness complex and cantilevered infinity pool.</p> 
+                             
+                            <ul class="space-y-3 font-sans text-sm text-reserve-sand/80 pt-6"> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Architecture</span> <span>Brutalist Stone</span></li> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Capacity</span> <span>12 Guests</span></li> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Helipad</span> <span class="text-reserve-gold">Confirmed</span></li> 
+                            </ul> 
+                             
+                            <div class="pt-6"> 
+                                <button class="text-[10px] font-sans uppercase tracking-widest border-b 
+border-reserve-sand pb-1 hover:text-reserve-gold hover:border-reserve-gold transition-colors 
+hover-target" onclick="scrollToSection('concierge')">Request Brochure</button> 
+                            </div> 
+                        </div> 
+                        <div class="parallax-wrap aspect-square md:aspect-[4/3] w-full rounded-sm 
+overflow-hidden order-1 lg:order-2 shadow-2xl group cursor-pointer hover-target"> 
+                            <img 
+src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?q=80&w=1200&auto=f
+ormat&fit=crop" class="parallax-media group-hover:scale-105 transition-transform 
+duration-1000" alt="Villa Exterior"> 
+                            <div class="absolute inset-0 bg-reserve-void/20 group-hover:bg-transparent 
+transition-colors duration-500"></div> 
+                        </div> 
+                    </div> 
+                </div> 
+ 
+                <!-- Destination 2 --> 
+                <div class="gallery-item"> 
+                    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"> 
+                        <div class="parallax-wrap aspect-square md:aspect-[4/3] w-full rounded-sm 
+overflow-hidden shadow-2xl group cursor-pointer hover-target"> 
+                            <img 
+src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=1200&auto=f
+ormat&fit=crop" class="parallax-media group-hover:scale-105 transition-transform 
+duration-1000" alt="Modern Mansion"> 
+                            <div class="absolute inset-0 bg-reserve-void/20 group-hover:bg-transparent 
+transition-colors duration-500"></div> 
+                        </div> 
+                        <div class="space-y-8"> 
+                            <span class="font-mono text-[10px] border border-reserve-gold/30 
+text-reserve-gold px-3 py-1 rounded-full uppercase tracking-widest">Off-Market Listing</span> 
+                            <h2 class="font-serif text-5xl md:text-7xl">Valais<br><span class="italic 
+font-light">Sanctuary.</span></h2> 
+                            <p class="font-sans text-reserve-sand/60 font-light leading-relaxed">A modern 
+glass-and-timber structure suspended above the Swiss Alps. Features biometric security, 
+private ski-in/ski-out access, and a climate-controlled motor gallery.</p> 
+                             
+                            <ul class="space-y-3 font-sans text-sm text-reserve-sand/80 pt-6"> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Elevation</span> <span>2,400m</span></li> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Security</span> <span class="text-reserve-gold">Level 4 Biometric</span></li> 
+                                <li class="flex justify-between border-b border-white/5 pb-2"><span>Staff 
+Quarters</span> <span>Included</span></li> 
+                            </ul> 
+                             
+                            <div class="pt-6"> 
+                                <button class="text-[10px] font-sans uppercase tracking-widest border-b 
+border-reserve-sand pb-1 hover:text-reserve-gold hover:border-reserve-gold transition-colors 
+hover-target" onclick="scrollToSection('concierge')">Request Brochure</button> 
+                            </div> 
+                        </div> 
+                    </div> 
+                </div> 
+ 
+                <!-- Destination 3 --> 
+                <div class="gallery-item"> 
+                    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"> 
+                        <div class="space-y-8 order-2 lg:order-1"> 
+                            <span class="font-mono text-[10px] border border-white/20 text-white px-3 
+py-1 rounded-full uppercase tracking-widest">Currently Leased</span> 
+                            <h2 class="font-serif text-5xl md:text-7xl">Sonora<br><span class="italic 
+font-light">Glasshouse.</span></h2> 
+                            <p class="font-sans text-reserve-sand/60 font-light leading-relaxed">Seamless 
+integration with the brutal desert landscape. 360-degree smart-glass walls that tint based on 
+solar positioning. Ultimate isolation.</p> 
+                             
+                            <ul class="space-y-3 font-sans text-sm text-reserve-sand/80 pt-6"> 
+                                <li class="flex justify-between border-b border-white/5 
+pb-2"><span>Acreage</span> <span>4,000 Private</span></li> 
+                                <li class="flex justify-between border-b border-white/5 pb-2"><span>Grid 
+Status</span> <span class="text-reserve-gold">100% Solar Off-Grid</span></li> 
+                            </ul> 
+                             
+                            <div class="pt-6"> 
+                                <button class="text-[10px] font-sans uppercase tracking-widest border-b 
+border-reserve-sand pb-1 hover:text-reserve-gold hover:border-reserve-gold transition-colors 
+hover-target" onclick="scrollToSection('concierge')">Join Waitlist</button> 
+                            </div> 
+                        </div> 
+                        <div class="parallax-wrap aspect-square md:aspect-[4/3] w-full rounded-sm 
+overflow-hidden order-1 lg:order-2 shadow-2xl group cursor-pointer hover-target"> 
+                            <img 
+src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=1200&auto=form
+at&fit=crop" class="parallax-media group-hover:scale-105 transition-transform duration-1000" 
+alt="Desert Home"> 
+                            <div class="absolute inset-0 bg-reserve-void/20 group-hover:bg-transparent 
+transition-colors duration-500"></div> 
+                        </div> 
+                    </div> 
+                </div> 
+ 
+            </div> 
+        </section> 
+ 
+        <!-- ================= SECTION 4: THE CONCIERGE (INQUIRY) 
+================= --> 
+        <section id="concierge" class="py-32 md:py-48 px-6 bg-reserve-void relative z-10"> 
+            <div class="max-w-4xl mx-auto"> 
+                <div class="text-center mb-24"> 
+                    <i data-lucide="key" class="w-10 h-10 text-reserve-gold mx-auto mb-8"></i> 
+                    <h2 class="font-serif text-5xl md:text-7xl mb-6">Private <span class="italic 
+font-light">Concierge.</span></h2> 
+                    <p class="font-sans text-reserve-sand/60 font-light leading-relaxed max-w-lg 
+mx-auto"> 
+                        Access to the Reserve Ledger is strictly vetted to protect the privacy of our 
+principals. Please submit your credentials below. 
+                    </p> 
+                </div> 
+ 
+                <div class="bg-reserve-surface p-10 md:p-16 rounded-sm border border-white/5 
+shadow-2xl"> 
+                    <form onsubmit="event.preventDefault(); triggerSuccess();" class="space-y-12"> 
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12"> 
+                            <div> 
+                                <label class="font-sans text-[9px] uppercase tracking-[0.2em] 
+text-reserve-clay mb-2 block">Principal Name</label> 
+                                <input type="text" class="concierge-input hover-target" placeholder="First & 
+Last Name" required> 
+                            </div> 
+                            <div> 
+                                <label class="font-sans text-[9px] uppercase tracking-[0.2em] 
+text-reserve-clay mb-2 block">Representation / Firm</label> 
+                                <input type="text" class="concierge-input hover-target" placeholder="Family 
+Office / Agency" required> 
+                            </div> 
+                        </div> 
+                         
+                        <div> 
+                            <label class="font-sans text-[9px] uppercase tracking-[0.2em] text-reserve-clay 
+mb-2 block">Correspondence Channel</label> 
+                            <input type="email" class="concierge-input hover-target" placeholder="Secure 
+Email Address" required> 
+                        </div> 
+ 
+                        <div> 
+                            <label class="font-sans text-[9px] uppercase tracking-[0.2em] text-reserve-clay 
+mb-2 block">Nature of Inquiry</label> 
+                            <select class="concierge-input hover-target cursor-pointer appearance-none 
+bg-transparent"> 
+                                <option class="bg-reserve-surface">Request Ledger Access 
+(Buying)</option> 
+                                <option class="bg-reserve-surface">Private Sanctuary Booking 
+(Travel)</option> 
+                                <option class="bg-reserve-surface">Off-Market Listing 
+Representation</option> 
+                            </select> 
+                        </div> 
+ 
+                        <div class="pt-8 text-center"> 
+                            <button type="submit" class="btn-reserve w-full md:w-auto hover-target"> 
+                                Submit Credentials 
+                            </button> 
+                            <p class="font-sans text-[9px] text-reserve-sand/40 uppercase tracking-widest 
+mt-6"> 
+                                <i data-lucide="shield-check" class="w-3 h-3 inline mr-1"></i> Strict NDA 
+Protocol Enforced 
+                            </p> 
+                        </div> 
+                    </form> 
+                </div> 
+            </div> 
+        </section> 
+ 
+    </main> 
+ 
+    <!-- SUCCESS MODAL --> 
+    <div id="success-modal" class="fixed inset-0 bg-reserve-void/95 backdrop-blur-md z-[60000] 
+hidden flex-col items-center justify-center px-6"> 
+        <div class="text-center max-w-lg mx-auto" id="success-content"> 
+            <div class="w-20 h-20 border border-reserve-gold rounded-full flex items-center 
+justify-center mx-auto mb-8 text-reserve-gold"> 
+                <i data-lucide="check" class="w-8 h-8"></i> 
+            </div> 
+            <h2 class="font-serif text-4xl text-reserve-sand mb-6 italic">Credentials Received.</h2> 
+            <p class="font-sans text-reserve-sand/60 font-light leading-relaxed mb-12"> 
+                Your dossier has been securely transmitted to our private concierge team. If your 
+profile meets our criteria, a liaison will contact you within 24 hours. 
+            </p> 
+            <button onclick="closeSuccess()" class="font-sans text-[10px] uppercase 
+tracking-[0.2em] border-b border-reserve-sand/50 pb-1 hover:text-reserve-gold 
+hover:border-reserve-gold transition-colors hover-target"> 
+                Return to Gallery 
+            </button> 
+        </div> 
+    </div> 
+ 
+    <!-- FOOTER --> 
+    <footer class="bg-reserve-void border-t border-white/5 py-16 px-8 relative z-20"> 
+        <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-center 
+gap-8"> 
+            <div class="font-serif italic text-2xl text-reserve-sand">Reserve.</div> 
+            <div class="flex gap-10 font-sans text-[9px] uppercase tracking-[0.3em] 
+text-reserve-clay"> 
+                <a href="#" class="hover:text-reserve-gold transition-colors hover-target">Journal</a> 
+                <a href="#" class="hover:text-reserve-gold transition-colors hover-target">Privacy</a> 
+                <a href="#" class="hover:text-reserve-gold transition-colors hover-target">Client 
+Portal</a> 
+            </div> 
+            <div class="font-sans text-[9px] text-reserve-sand/30 tracking-widest uppercase"> 
+                © 2026 The Reserve Architecture. 
+            </div> 
+        </div> 
+    </footer> 
+ 
+    <script> 
+        lucide.createIcons(); 
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin); 
+ 
+        // --- THE GOLDEN HOUR ENGINE (CURSOR) --- 
+        const cursor = document.querySelector('.cursor-reserve'); 
+        const glow = document.getElementById('sun-glow'); 
+ 
+        window.addEventListener('mousemove', (e) => { 
+            // Smooth core cursor 
+            gsap.to(cursor, { x: e.clientX, y: e.clientY, duration: 0.1 }); 
+            // Laggy heavy ambient glow 
+            gsap.to(glow, { x: e.clientX, y: e.clientY, duration: 0.8, ease: "power2.out" }); 
+        }); 
+         
+        document.querySelectorAll('.hover-target, button, input, select, a').forEach(el => { 
+            el.addEventListener('mouseenter', () => { 
+                cursor.classList.add('cursor-active'); 
+                gsap.to(glow, { width: '1200px', height: '1200px', opacity: 0.8, duration: 0.5 }); 
+            }); 
+            el.addEventListener('mouseleave', () => { 
+                cursor.classList.remove('cursor-active'); 
+                gsap.to(glow, { width: '800px', height: '800px', opacity: 1, duration: 0.5 }); 
+            }); 
+        }); 
+ 
+        // --- NAV BAR SCROLL EFFECT --- 
+        const nav = document.getElementById('main-nav'); 
+        window.addEventListener('scroll', () => { 
+            if(window.scrollY > 50) { 
+                nav.classList.add('bg-reserve-void/90', 'backdrop-blur-xl', 'border-white/10'); 
+                nav.classList.remove('p-8', 'md:p-12'); 
+                nav.classList.add('p-6', 'md:p-8'); 
+            } else { 
+                nav.classList.remove('bg-reserve-void/90', 'backdrop-blur-xl', 'border-white/10'); 
+                nav.classList.add('p-8', 'md:p-12'); 
+                nav.classList.remove('p-6', 'md:p-8'); 
+            } 
+        }); 
+ 
+        // --- INTRO REVEAL ANIMATIONS --- 
+        window.addEventListener('load', () => { 
+            const tl = gsap.timeline(); 
+            tl.to('.reveal-hero', { y: 0, opacity: 1, duration: 1.5, stagger: 0.15, ease: "power3.out", 
+delay: 0.5 }); 
+             
+            // Subtle slow zoom on hero video 
+            gsap.to('#hero-vid', { scale: 1, duration: 10, ease: "power1.out" }); 
+        }); 
+ 
+        // --- CURTAIN REVEAL FOR IMAGES --- 
+        gsap.utils.toArray('.reveal-curtain').forEach(curtain => { 
+            ScrollTrigger.create({ 
+                trigger: curtain.parentElement, 
+                start: "top 80%", 
+                onEnter: () => gsap.to(curtain, { scaleY: 0, duration: 1.5, ease: "power4.inOut" }) 
+            }); 
+        }); 
+ 
+        // --- PARALLAX IMAGES --- 
+        gsap.utils.toArray('.parallax-media').forEach(img => { 
+            gsap.to(img, { 
+                yPercent: 20, 
+                ease: "none", 
+                scrollTrigger: { 
+                    trigger: img.parentElement, 
+                    start: "top bottom", 
+                    end: "bottom top", 
+                    scrub: true 
+                } 
+            }); 
+        }); 
+ 
+        // --- HORIZONTAL SCROLL GALLERY (DESKTOP ONLY) --- 
+        if (window.innerWidth > 1024) { 
+            const track = document.getElementById('horizontal-track'); 
+            const items = gsap.utils.toArray('.gallery-item'); 
+             
+            gsap.to(items, { 
+                xPercent: -100 * (items.length - 1), 
+                ease: "none", 
+                scrollTrigger: { 
+                    trigger: "#destinations", 
+                    pin: true, 
+                    scrub: 1, 
+                    snap: 1 / (items.length - 1), 
+                    end: () => "+=" + track.offsetWidth 
+                } 
+            }); 
+        } 
+ 
+        // --- SMOOTH SCROLL --- 
+        window.scrollToSection = (id) => { 
+            gsap.to(window, { duration: 1.8, scrollTo: { y: `#${id}`, offsetY: 60 }, ease: "power3.inOut" 
+}); 
+        } 
+ 
+        // --- SUCCESS MODAL --- 
+        window.triggerSuccess = function() { 
+            const modal = document.getElementById('success-modal'); 
+            const content = document.getElementById('success-content'); 
+            modal.style.display = 'flex'; 
+            gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.6 }); 
+            gsap.fromTo(content, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 1, delay: 0.2, ease: 
+"power3.out" }); 
+        } 
+        window.closeSuccess = function() { 
+            const modal = document.getElementById('success-modal'); 
+            const content = document.getElementById('success-content'); 
+            gsap.to(content, { y: -20, opacity: 0, duration: 0.4 }); 
+            gsap.to(modal, { opacity: 0, duration: 0.6, delay: 0.2, onComplete: () => { 
+                modal.style.display = 'none'; 
+            }}); 
+        } 
+ 
+</script> 
+</body> 
+</html>
