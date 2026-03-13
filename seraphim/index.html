@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBD | SERAPHIM MAISON</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@200;300;400;500&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CONFIG & THEME --- */
+        :root {
+            --alabaster: #FAFAFA;
+            --onyx: #0A0A0A;
+            --gold: #C5A059;
+            --gold-dim: rgba(197, 160, 89, 0.2);
+            --border: rgba(10, 10, 10, 0.1);
+            
+            /* Velocity Physics Vars */
+            --skew: 0deg;
+            --blur: 0px;
+        }
+
+        /* --- BASE --- */
+        body {
+            background-color: var(--alabaster);
+            color: var(--onyx);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            cursor: none; 
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .font-divine { font-family: 'Cinzel', serif; }
+
+        /* --- SPA ROUTING CLASSES --- */
+        .view-section {
+            display: none; 
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .view-section.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* --- VELOCITY DISTORTION ENGINE --- */
+        .velocity-element {
+            will-change: transform, filter;
+            transform: skewY(var(--skew));
+            filter: blur(var(--blur));
+        }
+        .velocity-wrapper {
+            overflow: hidden;
+            will-change: transform;
+        }
+
+        /* --- THE HALO CURSOR --- */
+        #cursor-dot {
+            position: fixed; top: 0; left: 0;
+            width: 4px; height: 4px;
+            background-color: var(--onyx);
+            border-radius: 50%;
+            pointer-events: none; z-index: 100000;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        
+        #cursor-halo {
+            position: fixed; top: 0; left: 0;
+            width: 45px; height: 45px;
+            border: 1px solid var(--gold);
+            border-radius: 50%;
+            pointer-events: none; z-index: 99999;
+            transform: translate(-50%, -50%);
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                        height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                        background-color 0.3s, border-color 0.3s;
+            animation: halo-spin 8s linear infinite;
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        #cursor-text {
+            font-family: 'Inter', sans-serif; font-size: 8px; font-weight: 600; letter-spacing: 0.2em;
+            color: var(--alabaster); opacity: 0; transition: opacity 0.3s;
+            animation: halo-spin 8s linear infinite reverse;
+        }
+
+        @keyframes halo-spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        body.is-hovering #cursor-halo {
+            width: 60px; height: 60px; border-color: var(--onyx); border-style: dashed; animation-duration: 4s;
+        }
+        body.is-hovering #cursor-dot { opacity: 0; }
+        
+        body.is-viewing #cursor-halo {
+            width: 80px; height: 80px; background-color: var(--onyx); border-color: var(--onyx); border-style: solid;
+        }
+        body.is-viewing #cursor-text { opacity: 1; }
+        body.is-viewing #cursor-dot { opacity: 0; }
+
+        @media (pointer: coarse) { 
+            #cursor-dot, #cursor-halo { display: none !important; } 
+            body { cursor: auto !important; } 
+            /* Disable magnetic hover snaps on mobile to prevent sticky states */
+            .magnetic-target { transform: none !important; transition: none !important; }
+        }
+
+        /* --- MAGNETIC BUTTON PHYSICS --- */
+        .magnetic-wrap { display: inline-block; padding: 10px; margin: -10px; cursor: pointer; }
+        .magnetic-target { display: inline-block; will-change: transform; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @media (hover: hover) {
+            .magnetic-wrap:hover .magnetic-target { transition: none; }
+        }
+
+        /* --- CARDS & IMAGES --- */
+        .seraphim-card {
+            position: relative; background: var(--onyx); overflow: hidden; cursor: none; border-radius: 4px;
+        }
+        .seraphim-img {
+            width: 100%; height: 100%; object-fit: cover; filter: contrast(1.05) brightness(0.9);
+            transform: scale(1.05); transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.8s ease;
+        }
+        @media (hover: hover) {
+            .seraphim-card:hover .seraphim-img { transform: scale(1); filter: contrast(1.1) brightness(1.05); }
+        }
+        
+        .gold-shimmer {
+            position: absolute; inset: 0; z-index: 10; pointer-events: none;
+            background: linear-gradient(120deg, transparent 0%, rgba(197, 160, 89, 0.15) 50%, transparent 100%);
+            transform: translateX(-100%); transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @media (hover: hover) {
+            .seraphim-card:hover .gold-shimmer { transform: translateX(100%); }
+        }
+
+        /* --- AMBIENT LIGHTING --- */
+        .divine-light {
+            position: fixed; top: -10%; right: -10%; width: 80vw; height: 80vw;
+            background: radial-gradient(circle, var(--gold-dim) 0%, transparent 60%);
+            filter: blur(80px); z-index: -1; pointer-events: none;
+            animation: breathe 10s infinite alternate ease-in-out; mix-blend-mode: multiply;
+        }
+        @keyframes breathe { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.2); opacity: 0.8; } }
+
+        /* --- PRELOADER & PAGE TRANSITION --- */
+        #transition-overlay {
+            position: fixed; inset: 0; background: var(--alabaster); z-index: 60000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transform: translateY(0); transition: transform 0.8s cubic-bezier(0.85, 0, 0.15, 1);
+        }
+        #transition-overlay.hidden-up { transform: translateY(-100%); }
+        #transition-overlay.hidden-down { transform: translateY(100%); }
+
+        .reveal-mask { overflow: hidden; display: inline-block; }
+        .reveal-mask span {
+            display: inline-block; transform: translateY(105%); transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-mask.active span { transform: translateY(0); }
+
+        /* --- SCROLL REVEALS --- */
+        .fade-up { opacity: 0; transform: translateY(40px); transition: opacity 1.2s ease, transform 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        .fade-up.active { opacity: 1; transform: translateY(0); }
+
+        /* --- MOBILE MENU --- */
+        #mobile-menu {
+            position: fixed; inset: 0; background: rgba(250, 250, 250, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            z-index: 50000; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2rem;
+            transform: translateY(-100%); transition: transform 0.6s cubic-bezier(0.85, 0, 0.15, 1);
+        }
+        #mobile-menu.open { transform: translateY(0); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--alabaster); }
+        ::-webkit-scrollbar-thumb { background: var(--gold); }
+        .outline-text { color: transparent; -webkit-text-stroke: 1px var(--onyx); }
+    </style>
+</head>
+<body class="selection:bg-[var(--gold)] selection:text-white">
+
+    <!-- FX -->
+    <div class="divine-light"></div>
+    <div id="cursor-halo"><span id="cursor-text">VIEW</span></div>
+    <div id="cursor-dot"></div>
+
+    <!-- GLOBAL PAGE TRANSITION OVERLAY -->
+    <div id="transition-overlay">
+        <h1 class="font-divine text-4xl md:text-6xl tracking-widest text-[var(--onyx)] font-light">
+            <span class="reveal-mask" id="load-text"><span>SERAPHIM</span></span>
+        </h1>
+        <div class="w-[1px] h-0 bg-[var(--gold)] mt-8 transition-all duration-1000 ease-out" id="load-line"></div>
+    </div>
+
+    <!-- MOBILE FULLSCREEN MENU -->
+    <div id="mobile-menu">
+        <button onclick="toggleMobileMenu()" class="absolute top-8 right-8 text-[var(--onyx)] p-2">
+            <i data-lucide="x" class="w-8 h-8"></i>
+        </button>
+        <p class="font-inter text-[10px] tracking-[0.4em] text-[var(--gold)] font-bold uppercase mb-4">Maison Navigation</p>
+        <a onclick="navigate('home'); toggleMobileMenu();" class="font-divine text-4xl text-[var(--onyx)]">Home</a>
+        <a onclick="navigate('collection'); toggleMobileMenu();" class="font-divine text-4xl text-[var(--onyx)]">The Exhibition</a>
+        <a onclick="navigate('atelier'); toggleMobileMenu();" class="font-divine text-4xl text-[var(--onyx)]">The Atelier</a>
+        <a onclick="navigate('product'); toggleMobileMenu();" class="font-divine text-4xl text-[var(--onyx)]">Artifact 01</a>
+    </div>
+
+    <!-- GLOBAL NAVIGATION -->
+    <nav class="fixed top-0 w-full z-40 px-6 py-6 md:px-8 md:py-8 flex justify-between items-center bg-gradient-to-b from-[var(--alabaster)] via-[var(--alabaster)] to-transparent pointer-events-none transition-all duration-500">
+        
+        <!-- Brand -->
+        <div class="pointer-events-auto">
+            <div class="magnetic-wrap hover-trigger" onclick="navigate('home')">
+                <div class="magnetic-target font-divine text-2xl md:text-3xl font-bold tracking-widest cursor-pointer leading-none">
+                    OBD.
+                </div>
+            </div>
+            <p class="font-inter text-[8px] tracking-[0.5em] text-[var(--gold)] mt-2 uppercase font-medium hidden md:block">Maison</p>
+        </div>
+
+        <!-- Desktop Links -->
+        <div class="hidden md:flex gap-12 font-inter text-[10px] font-semibold tracking-[0.2em] uppercase text-gray-500 pointer-events-auto">
+            <div class="magnetic-wrap hover-trigger"><a onclick="navigate('collection')" class="magnetic-target hover:text-[var(--onyx)] transition-colors">The Exhibition</a></div>
+            <div class="magnetic-wrap hover-trigger"><a onclick="navigate('atelier')" class="magnetic-target hover:text-[var(--onyx)] transition-colors">The Atelier</a></div>
+            <div class="magnetic-wrap hover-trigger"><a onclick="navigate('product')" class="magnetic-target hover:text-[var(--onyx)] transition-colors">Artifact 01</a></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="pointer-events-auto flex items-center gap-4">
+            <div class="magnetic-wrap hover-trigger hidden md:block">
+                <button class="magnetic-target font-inter text-[10px] font-bold tracking-widest text-[var(--onyx)] border border-[var(--border)] px-6 py-3 rounded-full hover:bg-[var(--onyx)] hover:text-white transition-colors uppercase backdrop-blur-md">
+                    Bag (0)
+                </button>
+            </div>
+            
+            <!-- Mobile Menu Toggle -->
+            <button onclick="toggleMobileMenu()" class="md:hidden text-[var(--onyx)] p-2">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- SPA ROUTER OUTLET -->
+    <div id="app-root">
+
+        <!-- ==========================================
+             VIEW: HOME 
+             ========================================== -->
+        <main id="home" class="view-section active">
+            <!-- HERO SECTION -->
+            <header class="relative w-full min-h-screen flex flex-col justify-center items-center px-4 pt-20 velocity-wrapper">
+                <div class="velocity-element flex flex-col items-center w-full">
+                    <p class="font-inter text-[10px] text-[var(--gold)] tracking-[0.6em] mb-8 uppercase font-bold fade-up" style="transition-delay: 0.1s">
+                        Volume XI // Divine Proportion
+                    </p>
+                    
+                    <!-- Parallax Hero Image -->
+                    <div class="absolute top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] md:w-[35vw] aspect-[3/4] z-0 opacity-20 pointer-events-none fade-up" style="transition-delay: 0.2s">
+                        <img src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=1200&auto=format&fit=crop" class="w-full h-full object-cover parallax-img" alt="Hero Background">
+                    </div>
+
+                    <h1 class="font-divine text-[18vw] md:text-[13vw] leading-[0.85] md:leading-[0.8] tracking-tighter text-[var(--onyx)] font-black text-center relative z-10 select-none">
+                        <div class="fade-up" style="transition-delay: 0.3s">HEAVENLY</div>
+                        <div class="fade-up" style="transition-delay: 0.4s"><span class="italic font-light outline-text">COUTURE.</span></div>
+                    </h1>
+                    
+                    <p class="font-inter text-sm md:text-base text-gray-500 max-w-lg mx-auto mt-12 md:mt-16 leading-relaxed font-light text-center relative z-10 fade-up" style="transition-delay: 0.5s">
+                        Scroll quickly. Feel the momentum. True luxury doesn't just look expensive; it carries immense physical weight.
+                    </p>
+
+                    <div class="mt-12 md:mt-16 pointer-events-auto relative z-10 fade-up" style="transition-delay: 0.6s">
+                        <div class="magnetic-wrap hover-trigger" onclick="navigate('collection')">
+                            <button class="magnetic-target font-inter text-[10px] font-bold tracking-[0.3em] uppercase bg-[var(--onyx)] text-[var(--alabaster)] px-10 py-4 hover:bg-[var(--gold)] transition-colors shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-full">
+                                ENTER THE GALLERY
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- STATEMENT TEXT -->
+            <section class="py-32 md:py-40 px-6 max-w-5xl mx-auto text-center velocity-wrapper border-y border-[var(--border)] relative z-20 bg-[var(--alabaster)]">
+                <h2 class="velocity-element font-divine text-3xl md:text-6xl lg:text-7xl leading-tight text-[var(--onyx)] font-light fade-up">
+                    "Untouchable by definition.<br>
+                    <span class="italic text-[var(--gold)] font-bold">Unforgettable by design.</span>"
+                </h2>
+            </section>
+        </main>
+
+        <!-- ==========================================
+             VIEW: COLLECTION (EXHIBITION)
+             ========================================== -->
+        <main id="collection" class="view-section pt-32 md:pt-40 pb-20">
+            <div class="max-w-[1800px] mx-auto px-6 md:px-12 velocity-wrapper">
+                <div class="velocity-element">
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 fade-up gap-6">
+                        <h1 class="font-divine text-5xl md:text-8xl font-black leading-none">THE<br><span class="italic outline-text font-light">Exhibition.</span></h1>
+                        <div class="flex gap-4 md:gap-6 font-inter text-[9px] md:text-[10px] tracking-widest font-bold uppercase border-b border-[var(--border)] pb-2 w-full md:w-auto overflow-x-auto whitespace-nowrap">
+                            <button class="text-[var(--onyx)]">All</button>
+                            <button class="text-gray-400 hover:text-[var(--gold)] transition-colors">Outerwear</button>
+                            <button class="text-gray-400 hover:text-[var(--gold)] transition-colors">Footwear</button>
+                            <button class="text-gray-400 hover:text-[var(--gold)] transition-colors">Accessories</button>
+                        </div>
+                    </div>
+
+                    <!-- Collection Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-y-16 md:gap-y-24 gap-x-8 lg:gap-x-12">
+                        
+                        <!-- Item 1 -->
+                        <div class="md:col-span-4 flex flex-col group fade-up" onclick="navigate('product')">
+                            <div class="w-full aspect-[3/4] seraphim-card mb-6 hover-view">
+                                <img src="https://images.unsplash.com/photo-1548624149-f321924d2929?auto=format&fit=crop&q=80&w=800" class="seraphim-img" alt="Coat">
+                                <div class="gold-shimmer"></div>
+                            </div>
+                            <h3 class="font-divine text-2xl font-bold mb-1 group-hover:text-[var(--gold)] transition-colors">The Monolith Trench</h3>
+                            <div class="flex justify-between items-center font-inter text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+                                <span>Outerwear</span>
+                                <span class="text-[var(--onyx)]">$ 1,850</span>
+                            </div>
+                        </div>
+
+                        <!-- Item 2 (Offset down on desktop) -->
+                        <div class="md:col-span-4 md:mt-24 flex flex-col group fade-up" onclick="navigate('product')">
+                            <div class="w-full aspect-[3/4] seraphim-card mb-6 hover-view">
+                                <img src="https://images.unsplash.com/photo-1550614000-4b9519e02a2c?auto=format&fit=crop&q=80&w=800" class="seraphim-img" alt="Jacket">
+                                <div class="gold-shimmer"></div>
+                            </div>
+                            <h3 class="font-divine text-2xl font-bold mb-1 group-hover:text-[var(--gold)] transition-colors">Obsidian Shell</h3>
+                            <div class="flex justify-between items-center font-inter text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+                                <span>Outerwear</span>
+                                <span class="text-[var(--onyx)]">$ 1,200</span>
+                            </div>
+                        </div>
+
+                        <!-- Item 3 -->
+                        <div class="md:col-span-4 flex flex-col group fade-up" onclick="navigate('product')">
+                            <div class="w-full aspect-[4/5] seraphim-card mb-6 hover-view">
+                                <img src="https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800" class="seraphim-img" alt="Shoes">
+                                <div class="gold-shimmer"></div>
+                            </div>
+                            <h3 class="font-divine text-2xl font-bold mb-1 group-hover:text-[var(--gold)] transition-colors">Venom Stiletto</h3>
+                            <div class="flex justify-between items-center font-inter text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+                                <span>Footwear</span>
+                                <span class="text-[var(--onyx)]">$ 890</span>
+                            </div>
+                        </div>
+
+                        <!-- Item 4 (Wide) -->
+                        <div class="md:col-span-8 flex flex-col group fade-up" onclick="navigate('product')">
+                            <div class="w-full aspect-[4/3] md:aspect-[21/9] seraphim-card mb-6 hover-view">
+                                <img src="https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=1600" class="seraphim-img object-center" alt="Bag">
+                                <div class="gold-shimmer"></div>
+                            </div>
+                            <h3 class="font-divine text-2xl font-bold mb-1 group-hover:text-[var(--gold)] transition-colors">The Paradigm Tote</h3>
+                            <div class="flex justify-between items-center font-inter text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+                                <span>Accessories</span>
+                                <span class="text-[var(--onyx)]">$ 2,400</span>
+                            </div>
+                        </div>
+
+                        <!-- Item 5 -->
+                        <div class="md:col-span-4 md:mt-20 flex flex-col group fade-up" onclick="navigate('product')">
+                            <div class="w-full aspect-[3/4] seraphim-card mb-6 hover-view">
+                                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800" class="seraphim-img" alt="Dress">
+                                <div class="gold-shimmer"></div>
+                            </div>
+                            <h3 class="font-divine text-2xl font-bold mb-1 group-hover:text-[var(--gold)] transition-colors">The Seraphim Gown</h3>
+                            <div class="flex justify-between items-center font-inter text-[10px] text-gray-500 font-bold tracking-widest uppercase">
+                                <span>Evening</span>
+                                <span class="text-[var(--onyx)]">$ 3,200</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ==========================================
+             VIEW: PRODUCT (PDP)
+             ========================================== -->
+        <main id="product" class="view-section pt-24 md:pt-32 pb-20">
+            <div class="max-w-[1800px] mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+                
+                <!-- Left: Sticky Image Gallery -->
+                <div class="lg:sticky lg:top-32 flex flex-col gap-6 velocity-wrapper">
+                    <div class="w-full aspect-[3/4] seraphim-card hover-view velocity-element fade-up">
+                        <img src="https://images.unsplash.com/photo-1548624149-f321924d2929?auto=format&fit=crop&q=80&w=1200" class="seraphim-img" alt="Front View">
+                    </div>
+                </div>
+
+                <!-- Right: Product Details -->
+                <div class="py-4 md:py-10 lg:pl-10 velocity-wrapper">
+                    <div class="velocity-element">
+                        <p class="font-inter text-[10px] text-[var(--gold)] tracking-[0.4em] uppercase font-bold mb-4 fade-up">Archival Piece // 01</p>
+                        <h1 class="font-divine text-4xl md:text-6xl font-black mb-4 fade-up">THE MONOLITH TRENCH</h1>
+                        <p class="font-inter text-xl md:text-2xl font-light mb-8 md:mb-10 fade-up">$ 1,850 USD</p>
+
+                        <p class="font-inter text-sm text-gray-600 leading-relaxed mb-8 md:mb-10 fade-up">
+                            Engineered from heavy-gauge Italian wool crepe. The Monolith Trench features architectural shoulders, a suppressed waist, and a silhouette designed to cast a massive shadow. Unapologetic structural integrity.
+                        </p>
+
+                        <!-- Sizing -->
+                        <div class="mb-10 fade-up">
+                            <div class="flex justify-between font-inter text-[10px] font-bold tracking-widest uppercase mb-4">
+                                <span>Select Size</span>
+                                <span class="text-[var(--gold)] hover-trigger cursor-pointer border-b border-transparent hover:border-[var(--gold)]">Size Guide</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-3 md:gap-4 font-inter text-xs">
+                                <button class="border border-[var(--border)] py-3 hover:border-[var(--onyx)] hover:bg-[var(--onyx)] hover:text-white transition-colors">36</button>
+                                <button class="border border-[var(--border)] py-3 hover:border-[var(--onyx)] hover:bg-[var(--onyx)] hover:text-white transition-colors bg-[var(--onyx)] text-white">38</button>
+                                <button class="border border-[var(--border)] py-3 hover:border-[var(--onyx)] hover:bg-[var(--onyx)] hover:text-white transition-colors">40</button>
+                                <button class="border border-[var(--border)] py-3 text-gray-300 cursor-not-allowed">42</button>
+                            </div>
+                        </div>
+
+                        <!-- Add to Bag -->
+                        <div class="w-full fade-up">
+                            <button class="w-full bg-[var(--onyx)] text-[var(--alabaster)] font-inter text-xs font-bold tracking-[0.3em] uppercase py-5 rounded-full hover:bg-[var(--gold)] transition-colors hover-trigger">
+                                Acquire Asset
+                            </button>
+                        </div>
+
+                        <!-- Accordions -->
+                        <div class="mt-12 md:mt-16 border-t border-[var(--border)] fade-up">
+                            <div class="py-6 border-b border-[var(--border)] flex justify-between items-center cursor-pointer hover-trigger group">
+                                <span class="font-inter text-xs font-bold tracking-widest uppercase">Details & Composition</span>
+                                <i data-lucide="plus" class="w-4 h-4 group-hover:text-[var(--gold)] transition-colors"></i>
+                            </div>
+                            <div class="py-6 border-b border-[var(--border)] flex justify-between items-center cursor-pointer hover-trigger group">
+                                <span class="font-inter text-xs font-bold tracking-widest uppercase">Shipping & Returns</span>
+                                <i data-lucide="plus" class="w-4 h-4 group-hover:text-[var(--gold)] transition-colors"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- ==========================================
+             VIEW: ATELIER (ABOUT)
+             ========================================== -->
+        <main id="atelier" class="view-section pt-32 pb-20">
+            <div class="max-w-[1400px] mx-auto px-6 md:px-12 velocity-wrapper">
+                <div class="velocity-element text-center mb-24 md:mb-32">
+                    <p class="font-inter text-[10px] text-[var(--gold)] tracking-[0.5em] uppercase font-bold mb-6 fade-up">The Manifesto</p>
+                    <h1 class="font-divine text-4xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-tight fade-up">
+                        WE DO NOT <span class="italic font-light outline-text">FOLLOW.</span><br>
+                        WE ESTABLISH <span class="text-[var(--gold)]">THE BASELINE.</span>
+                    </h1>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center mb-24 md:mb-32">
+                    <div class="seraphim-card aspect-square hover-view fade-up">
+                        <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000" class="seraphim-img" alt="Architecture">
+                        <div class="gold-shimmer"></div>
+                    </div>
+                    <div class="fade-up">
+                        <h2 class="font-divine text-3xl md:text-4xl mb-6">Structural Integrity</h2>
+                        <p class="font-inter text-sm text-gray-600 leading-relaxed">
+                            Our garments are approached as architectural projects. Every seam is load-bearing. Every cut is mathematically calculated. We source the heaviest, most resilient textiles globally to ensure that our silhouettes do not just drape—they command the space they occupy.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center flex-col-reverse md:flex-row-reverse mb-20">
+                    <div class="fade-up md:pl-12">
+                        <h2 class="font-divine text-3xl md:text-4xl mb-6">The Parisian Standard</h2>
+                        <p class="font-inter text-sm text-gray-600 leading-relaxed">
+                            Hand-finished in our central atelier, we reject mass production in favor of absolute obsession. OBD is not a brand; it is a classification of quality. Uncompromising, untouchable, and forever operating at the highest frequency.
+                        </p>
+                    </div>
+                    <div class="seraphim-card aspect-[4/3] hover-view fade-up">
+                        <img src="https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&q=80&w=1000" class="seraphim-img" alt="Fabric details">
+                        <div class="gold-shimmer"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    </div> <!-- End App Root -->
+
+    <!-- GLOBAL LUXURY FOOTER -->
+    <footer class="pt-20 pb-12 px-6 md:px-12 bg-[var(--onyx)] relative z-20 text-[var(--alabaster)] w-full">
+        <div class="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-16 border-b border-white/10 pb-16 md:pb-20">
+            <div class="md:col-span-5">
+                <h2 class="font-divine text-6xl md:text-9xl text-[var(--gold)] mb-4 leading-none font-light italic">OBD.</h2>
+                <p class="font-inter text-sm text-gray-400 mb-8 md:mb-10 max-w-sm font-light leading-relaxed">
+                    Ascend to the inner circle. Subscribe to receive exclusive invitations to private gallery showings and bespoke drops.
+                </p>
+                <div class="flex border-b border-gray-700 pb-2 max-w-sm group focus-within:border-[var(--gold)] transition-colors">
+                    <input type="email" placeholder="ENTER YOUR ADDRESS" class="bg-transparent w-full font-inter text-[10px] font-bold outline-none text-[var(--alabaster)] placeholder-gray-500 tracking-[0.2em] uppercase">
+                    <div class="magnetic-wrap hover-trigger">
+                        <button class="magnetic-target text-[var(--gold)] font-divine text-xl italic group-hover:opacity-70 transition-opacity pr-2">
+                            Secure
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-8 font-inter text-[9px] font-bold tracking-[0.3em] text-gray-500 mt-8 md:mt-0 content-end md:text-right uppercase">
+                <div class="flex flex-col gap-6">
+                    <span class="text-[var(--gold)] mb-2">Society</span>
+                    <a href="#" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto">Instagram</a>
+                    <a href="#" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto">Pinterest</a>
+                </div>
+                <div class="flex flex-col gap-6">
+                    <span class="text-[var(--gold)] mb-2">Maison</span>
+                    <a onclick="navigate('atelier')" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto cursor-pointer">The Atelier</a>
+                    <a onclick="navigate('collection')" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto cursor-pointer">Archive</a>
+                </div>
+                <div class="flex flex-col gap-6 col-span-2 md:col-span-1">
+                    <span class="text-[var(--gold)] mb-2">Legal</span>
+                    <a href="#" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto">Terms</a>
+                    <a href="#" class="hover-trigger hover:text-white transition-colors w-max md:ml-auto">Privacy</a>
+                </div>
+            </div>
+        </div>
+        <div class="max-w-[1600px] mx-auto mt-8 md:mt-10 flex flex-col md:flex-row justify-between items-center gap-4 font-inter text-[8px] md:text-[9px] font-bold text-gray-500 tracking-[0.3em] uppercase text-center">
+            <span>© 2026 OBD Maison. All Rights Reserved.</span>
+            <span class="text-[var(--gold)]">THE SERAPHIM PROTOCOL</span>
+        </div>
+    </footer>
+
+    <script>
+        // --- INIT ICONS ---
+        lucide.createIcons();
+
+        // --- MOBILE MENU LOGIC ---
+        const mobileMenu = document.getElementById('mobile-menu');
+        function toggleMobileMenu() {
+            mobileMenu.classList.toggle('open');
+            if(mobileMenu.classList.contains('open')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
+        // --- SPA ROUTING LOGIC (Bulletproof Class-based transition) ---
+        const overlay = document.getElementById('transition-overlay');
+        
+        function navigate(viewId) {
+            // Prevent navigating to the same page if already active
+            if(document.getElementById(viewId).classList.contains('active')) return;
+
+            // 1. Pull down transition overlay
+            overlay.classList.remove('hidden-up', 'hidden-down');
+            
+            // 2. Wait for overlay to cover screen (0.8s matches CSS transition)
+            setTimeout(() => {
+                // Hide all views
+                document.querySelectorAll('.view-section').forEach(el => {
+                    el.classList.remove('active');
+                });
+                
+                // Reset scroll and physics
+                window.scrollTo(0, 0);
+                scrollVelocity = 0;
+                currentScroll = 0;
+                lastScroll = 0;
+                document.documentElement.style.setProperty('--skew', `0deg`);
+                document.documentElement.style.setProperty('--blur', `0px`);
+
+                // Show new view
+                document.getElementById(viewId).classList.add('active');
+
+                // Re-init reveals for the new DOM state
+                initReveals();
+
+                // 3. Push overlay up to reveal new page
+                overlay.classList.add('hidden-up');
+                    
+                // Reset overlay position behind the scenes for the next click
+                setTimeout(() => {
+                    overlay.style.transition = 'none';
+                    overlay.classList.remove('hidden-up');
+                    overlay.classList.add('hidden-down');
+                    // Small timeout to restore transition property safely
+                    setTimeout(() => {
+                        overlay.style.transition = 'transform 0.8s cubic-bezier(0.85, 0, 0.15, 1)';
+                    }, 50);
+                }, 800);
+
+            }, 800); 
+        }
+
+        // --- PRELOADER (Initial Load) ---
+        window.addEventListener('load', () => {
+            const loadText = document.getElementById('load-text');
+            const loadLine = document.getElementById('load-line');
+
+            // Boot sequence
+            setTimeout(() => {
+                loadText.classList.add('active');
+                setTimeout(() => {
+                    loadLine.style.height = '100px';
+                    setTimeout(() => {
+                        // Slide overlay up to reveal Home
+                        overlay.classList.add('hidden-up'); 
+                        initReveals();
+                        
+                        // Reset overlay behind scenes
+                        setTimeout(() => {
+                            overlay.style.transition = 'none';
+                            overlay.classList.remove('hidden-up');
+                            overlay.classList.add('hidden-down');
+                            setTimeout(() => {
+                                overlay.style.transition = 'transform 0.8s cubic-bezier(0.85, 0, 0.15, 1)';
+                            }, 50);
+                        }, 800);
+                    }, 800);
+                }, 600);
+            }, 300);
+        });
+
+        // --- THE HALO CURSOR ---
+        // Cursor only active if pointer is fine (not a touch device)
+        if (window.matchMedia("(pointer: fine)").matches) {
+            const cursorDot = document.getElementById('cursor-dot');
+            const cursorHalo = document.getElementById('cursor-halo');
+            
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
+            let haloX = mouseX;
+            let haloY = mouseY;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                cursorDot.style.left = mouseX + 'px';
+                cursorDot.style.top = mouseY + 'px';
+            });
+
+            function animateCursor() {
+                haloX += (mouseX - haloX) * 0.15;
+                haloY += (mouseY - haloY) * 0.15;
+                cursorHalo.style.left = haloX + 'px';
+                cursorHalo.style.top = haloY + 'px';
+                requestAnimationFrame(animateCursor);
+            }
+            animateCursor();
+
+            // Hover States - Event Delegation to handle SPA dynamic rendering
+            document.body.addEventListener('mouseover', (e) => {
+                if (e.target.closest('.hover-trigger')) document.body.classList.add('is-hovering');
+                if (e.target.closest('.hover-view')) document.body.classList.add('is-viewing');
+            });
+            document.body.addEventListener('mouseout', (e) => {
+                if (e.target.closest('.hover-trigger')) document.body.classList.remove('is-hovering');
+                if (e.target.closest('.hover-view')) document.body.classList.remove('is-viewing');
+            });
+
+            // MAGNETIC PHYSICS
+            const magnets = document.querySelectorAll('.magnetic-wrap');
+            magnets.forEach(wrap => {
+                const target = wrap.querySelector('.magnetic-target');
+                if(!target) return;
+
+                wrap.addEventListener('mousemove', (e) => {
+                    const rect = wrap.getBoundingClientRect();
+                    const x = e.clientX - (rect.left + rect.width / 2);
+                    const y = e.clientY - (rect.top + rect.height / 2);
+                    target.style.transform = `translate3d(${x * 0.3}px, ${y * 0.3}px, 0)`;
+                });
+                wrap.addEventListener('mouseleave', () => {
+                    target.style.transform = 'translate3d(0px, 0px, 0)';
+                });
+            });
+        }
+
+        // --- THE MOMENTUM BLUR ENGINE ---
+        let currentScroll = window.scrollY;
+        let lastScroll = window.scrollY;
+        let scrollVelocity = 0;
+
+        function renderPhysics() {
+            currentScroll = window.scrollY;
+            let delta = currentScroll - lastScroll;
+            lastScroll = currentScroll;
+
+            // Add velocity & friction
+            scrollVelocity = (scrollVelocity + delta) * 0.85;
+
+            let skew = scrollVelocity * 0.05;
+            let blur = Math.abs(scrollVelocity) * 0.04;
+
+            // Clamp max values to prevent breaking layout on fast flings
+            skew = Math.max(-3, Math.min(3, skew)); 
+            blur = Math.max(0, Math.min(5, blur));  
+
+            document.documentElement.style.setProperty('--skew', `${skew}deg`);
+            document.documentElement.style.setProperty('--blur', `${blur}px`);
+
+            // Parallax only on active home view to save GPU
+            if(document.getElementById('home').classList.contains('active')) {
+                const heroPrlx = document.querySelector('.parallax-img');
+                if(heroPrlx && currentScroll < window.innerHeight) {
+                    heroPrlx.style.transform = `translate3d(0, ${currentScroll * 0.2}px, 0)`;
+                }
+            }
+
+            requestAnimationFrame(renderPhysics);
+        }
+        renderPhysics();
+
+        // --- SCROLL REVEALS ---
+        let revealObserver;
+        function initReveals() {
+            // Disconnect old observer if it exists
+            if(revealObserver) revealObserver.disconnect();
+            
+            revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                        // Optional: unobserve if you only want it to animate once
+                        // revealObserver.unobserve(entry.target); 
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+            // Select elements ONLY in the currently active view
+            const elements = document.querySelectorAll('.view-section.active .fade-up, .view-section.active .reveal-mask');
+            
+            elements.forEach(el => {
+                el.classList.remove('active'); // Reset state
+                revealObserver.observe(el);
+            });
+            
+            // Force manual check for elements already in viewport (prevents them from getting stuck if no scroll happens)
+            setTimeout(() => {
+                elements.forEach(el => {
+                    const rect = el.getBoundingClientRect();
+                    if(rect.top < window.innerHeight) {
+                        el.classList.add('active');
+                    }
+                });
+            }, 100);
+        }
+
+    </script>
+</body>
+</html>
